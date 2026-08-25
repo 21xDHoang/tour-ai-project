@@ -1,0 +1,16 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# ---- Môi trường ảo ----
+.venv/
+venv/
+
+# ---- Bí mật (tuyệt đối không commit) ----
+.env
+
+# ---- IDE ----
+.idea/
+.vscode/

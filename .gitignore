@@ -1,0 +1,57 @@
+# =============================================================
+# .gitignore - Hệ thống Quản lý Tour Du lịch Tích hợp AI (TourAI)
+# Áp dụng cho toàn repo: tour-backend/ + tour-frontend/
+# =============================================================
+
+# ---------- Chung ----------
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# File tạm / sao lưu
+*.tmp
+*.bak
+
+# ---------- Backend (Python / FastAPI) ----------
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Môi trường ảo Python
+.venv/
+venv/
+env/
+.ENV/
+
+# ---------- BÍ MẬT — TUYỆT ĐỐI KHÔNG COMMIT ----------
+# Chứa mật khẩu database, JWT secret, Gemini/DeepSeek API key
+.env
+.env.*
+# Cho phép mẫu cấu hình (không chứa secret) nếu sau này thêm
+!.env.example
+
+# ---------- Frontend (Node / Vite) ----------
+node_modules/
+dist/
+dist-ssr/
+.vite/
+*.local
