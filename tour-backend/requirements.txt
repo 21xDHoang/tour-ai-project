@@ -20,4 +20,11 @@ bcrypt==4.0.1
 # google-generativeai 0.8.4: bản mới hỗ trợ response_schema (Structured Outputs),
 # request_options (timeout) và tương thích Python 3.13 + API key dạng AQ.
 google-generativeai==0.8.4
+# httpx: dùng cho nhánh DeepSeek trong app/ai/adapter.py (API tương thích OpenAI).
+httpx==0.26.0
+
+# ---- Lưu trữ ảnh (Cloudflare R2, giao thức S3) ----
+# boto3: dùng cho app/services/storage_service.py và scripts/upload_destination_images.py.
+boto3==1.43.82
+
 pytest==7.4.3

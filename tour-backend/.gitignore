@@ -11,6 +11,13 @@ venv/
 # ---- Bí mật (tuyệt đối không commit) ----
 .env
 
+# ---- Script dò lỗi dùng một lần (không thuộc mã nguồn dự án) ----
+_test_pooler.py
+_xoa_test.py
+
+# ---- Bản trích văn bản báo cáo (không phải mã nguồn) ----
+docx_extract.txt
+
 # ---- IDE ----
 .idea/
 .vscode/

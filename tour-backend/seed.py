@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-seed.py - Khởi tạo 15 bảng và nạp dữ liệu mẫu trên Supabase PostgreSQL.
+seed.py - Khởi tạo 23 bảng và nạp dữ liệu mẫu trên Supabase PostgreSQL.
 
 Cách chạy (từ thư mục tour-backend):
     python seed.py
 
 Dữ liệu mẫu khớp Mã nguồn 3.9 trong tài liệu:
-    3 tài khoản NguoiDung (Admin / Consultant / Accountant) - mật khẩu BCrypt hợp lệ
+    4 tài khoản NguoiDung (Admin / Consultant / Accountant / Customer) - mật khẩu BCrypt hợp lệ
     2 Khách hàng, 3 Điểm đến, 2 Tour, 2 Lịch khởi hành, 3 Hướng dẫn viên
 """
 import sys
@@ -26,7 +26,10 @@ from app.models import (
 )
 from app.utils.security import hash_password
 
-# 19 bảng: 15 bảng theo Data Dictionary (Bảng 2.6..2.20) + 4 bảng mới
+# 23 bảng: 15 bảng theo Data Dictionary (Bảng 2.6..2.20)
+#   + 3 bảng CRM mở rộng (Lead / Tour riêng / Voucher)
+#   + 1 bảng nội dung (CamNang)
+#   + 4 bảng tài chính - kế toán (BangLuong / CongNoNhaCungCap / PhiChi / QuyetToanTour)
 EXPECTED_TABLES = [
     "NguoiDung",
     "KhachHang",
@@ -47,6 +50,10 @@ EXPECTED_TABLES = [
     "AI_DeXuatHuongDanVien",
     "AI_PhanTichPhanHoi",
     "CamNang",
+    "BangLuong",
+    "CongNoNhaCungCap",
+    "PhiChi",
+    "QuyetToanTour",
 ]
 
 # Mật khẩu mặc định cho 4 tài khoản mẫu (chỉ dùng cho môi trường phát triển)
@@ -439,23 +446,22 @@ def seed_tour_loai(db) -> None:
 
 
 def report() -> None:
-    """In báo cáo tổng số dòng của 15 bảng."""
+    """In báo cáo tổng số dòng của tất cả các bảng trong EXPECTED_TABLES."""
     db = SessionLocal()
     try:
         print("\n" + "=" * 70)
         print("[3] BÁO CÁO DỮ LIỆU TRÊN SUPABASE")
         print("=" * 70)
-        counts = {
-            "NguoiDung": db.query(NguoiDung).count(),
-            "KhachHang": db.query(KhachHang).count(),
-            "DiemDen": db.query(DiemDen).count(),
-            "Tour": db.query(Tour).count(),
-            "LichKhoiHanh": db.query(LichKhoiHanh).count(),
-            "HuongDanVien": db.query(HuongDanVien).count(),
-            "CamNang": db.query(CamNang).count(),
-        }
         for name in EXPECTED_TABLES:
-            n = counts.get(name, 0)
+            table = Base.metadata.tables.get(name)
+            if table is None:
+                print(f"    - {name}: (không có trong metadata)")
+                continue
+            try:
+                n = db.query(table).count()
+            except Exception as exc:
+                print(f"    - {name}: LỖI ({exc})")
+                continue
             print(f"    - {name}: {n} dòng")
     finally:
         db.close()
@@ -466,8 +472,8 @@ def main() -> None:
     print("TOUR AI - KHỞI TẠO CSDL & NẠP DỮ LIỆU MẪU")
     print("=" * 70)
 
-    # 1) Kiểm tra kết nối + tạo 15 bảng
-    print("\n[1] Kết nối Supabase và tạo 15 bảng (Base.metadata.create_all)...")
+    # 1) Kiểm tra kết nối + tạo bảng
+    print("\n[1] Kết nối Supabase và tạo bảng (Base.metadata.create_all)...")
     try:
         Base.metadata.create_all(bind=engine)
     except Exception as exc:
@@ -513,7 +519,7 @@ def main() -> None:
 
     # 3) Báo cáo
     report()
-    print("\nHOÀN TẤT. 15 bảng đã sẵn sàng trên Supabase.")
+    print("\nHOÀN TẤT. 23 bảng đã sẵn sàng trên Supabase.")
 
 
 if __name__ == "__main__":

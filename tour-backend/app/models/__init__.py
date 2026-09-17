@@ -1,8 +1,13 @@
 """
-app/models/ - 18 SQLAlchemy Models.
+app/models/ - 23 SQLAlchemy Models.
 
-15 bảng gốc khớp Data Dictionary + 3 bảng mới BƯỚC tái cấu trúc:
-YeuCauTuVan (Lead), YeuCauTourRieng (Custom Tour), MaGiamGia (Voucher).
+Phân nhóm:
+  - 15 bảng gốc khớp Data Dictionary (Chương 2).
+  - 3 bảng CRM mở rộng: YeuCauTuVan (Lead), YeuCauTourRieng (Custom Tour),
+    MaGiamGia (Voucher).
+  - 1 bảng nội dung: CamNang (Cẩm nang du lịch).
+  - 4 bảng tài chính - kế toán: BangLuong, CongNoNhaCungCap, PhiChi,
+    QuyetToanTour.
 """
 from app.models.ai_de_xuat_huong_dan_vien import AIDeXuatHuongDanVien
 from app.models.ai_phan_tich_phan_hoi import AIPhanTichPhanHoi
