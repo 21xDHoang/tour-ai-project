@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Card, Spin, Table, Tag, Typography } from 'antd';
-import { TeamOutlined } from '@ant-design/icons';
 import { adminApi } from '../../api/http';
 import { fmtVND } from '../../utils/format';
-
-const { Title, Text } = Typography;
+import BangDuLieu from '../../components/ui/BangDuLieu';
+import SectionHeader from '../../components/ui/SectionHeader';
 
 /** Hồ sơ khách hàng & chi tiêu (Admin - CRM). */
 export default function AdminCustomers() {
@@ -20,50 +18,81 @@ export default function AdminCustomers() {
   }, []);
 
   const columns = [
-    { title: 'Khách hàng', dataIndex: 'HoTen' },
-    { title: 'SĐT', dataIndex: 'SoDienThoai' },
-    { title: 'Email', dataIndex: 'Email', render: (v) => v || '—' },
     {
+      title: 'Khách hàng',
+      dataIndex: 'HoTen',
+      width: 170,
+      ellipsis: true,
+      render: (v) => <span className="font-semibold text-ink-950">{v}</span>,
+    },
+    {
+      title: 'SĐT',
+      dataIndex: 'SoDienThoai',
+      width: 116,
+      render: (v) => <span className="tnum whitespace-nowrap">{v}</span>,
+    },
+    { title: 'Email', dataIndex: 'Email', width: 200, ellipsis: true, render: (v) => v || '—' },
+    {
+      // Hạng khách không phải trạng thái cần xử lý, nên không tô màu — phân cấp
+      // bằng độ đậm của chữ. Tô vàng cho khách thân thiết là dùng màu để khen,
+      // và chỗ nào cũng có thể khen thì màu hết nói được gì.
       title: 'Loại khách',
       dataIndex: 'LoaiKhach',
-      render: (v) => (
-        <Tag color={v === 'ThanThiet' ? 'gold' : 'default'}>
-          {v === 'ThanThiet' ? 'Thân thiết' : 'Thường'}
-        </Tag>
-      ),
+      width: 118,
+      render: (v) =>
+        v === 'ThanThiet' ? (
+          <span className="font-semibold text-ink-950">Thân thiết</span>
+        ) : (
+          <span className="text-ink-600">Thường</span>
+        ),
     },
     {
       title: 'Tổng chi tiêu',
       dataIndex: 'tong_tien_da_chi',
-      render: (v) => <b>{fmtVND(v)}</b>,
+      width: 140,
+      align: 'right',
+      render: (v) => <span className="tnum font-semibold text-ink-950">{fmtVND(v)}</span>,
     },
-    { title: 'Số đơn', dataIndex: 'so_don', align: 'center' },
+    {
+      title: 'Số đơn',
+      dataIndex: 'so_don',
+      width: 84,
+      align: 'right',
+      render: (v) => <span className="tnum">{v ?? 0}</span>,
+    },
     {
       title: 'Thanh toán đủ',
       dataIndex: 'so_don_da_thanh_toan',
-      align: 'center',
+      width: 134,
+      align: 'right',
+      render: (v) => <span className="tnum">{v ?? 0}</span>,
     },
   ];
 
+  const rongBang = columns.reduce((s, c) => s + (c.width || 0), 0);
+
   return (
-    <div className="mx-auto max-w-7xl">
-      <div className="mb-4">
-        <Title level={3} className="!mb-1">
-          <TeamOutlined /> Hồ sơ khách hàng
-        </Title>
-        <Text type="secondary">
-          Danh sách khách hàng kèm tổng chi tiêu và lịch sử đặt tour.
-        </Text>
+    <div className="w-full">
+      <SectionHeader
+        marker={loading ? null : `${rows.length} khách`}
+        title="Hồ sơ khách hàng"
+        description="Danh sách khách hàng kèm tổng chi tiêu và lịch sử đặt tour."
+      />
+
+      <div className="mt-6">
+        <BangDuLieu
+          rows={rows}
+          columns={columns}
+          rowKey="MaKhachHang"
+          x={rongBang}
+          loading={loading}
+          pageSize={10}
+          empty={{
+            title: 'Chưa có khách hàng nào',
+            description: 'Hồ sơ khách được tạo ngay khi có người đặt tour lần đầu.',
+          }}
+        />
       </div>
-      <Card className="shadow-card" bordered={false}>
-        {loading ? (
-          <div className="flex justify-center py-16">
-            <Spin size="large" />
-          </div>
-        ) : (
-          <Table rowKey="MaKhachHang" columns={columns} dataSource={rows} />
-        )}
-      </Card>
     </div>
   );
 }

@@ -1,30 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Button,
-  Card,
   Col,
   Dropdown,
   Form,
   Input,
-  InputNumber,
   Modal,
   Row,
   Select,
-  Tag,
-  Typography,
   message,
 } from 'antd';
-import {
-  CustomerServiceOutlined,
-  DownOutlined,
-  PlusOutlined,
-  UserAddOutlined,
-} from '@ant-design/icons';
+import { DownOutlined, PlusOutlined, UserAddOutlined } from '@ant-design/icons';
 import { leadApi } from '../../api/http';
 import { useAuth } from '../../context/AuthContext';
 import { TRANG_THAI_LEAD, fmtDateTime } from '../../utils/format';
-
-const { Title, Text } = Typography;
+import { leadDot } from '../../utils/signs';
+import SectionHeader from '../../components/ui/SectionHeader';
 
 const TRANG_THAI_ORDER = [
   'Moi',
@@ -109,34 +100,40 @@ export default function ConsultantLeads() {
     }
   };
 
+  // Thẻ không còn viên trạng thái: cột đã nói trạng thái rồi, nhắc lại ở từng
+  // thẻ là lặp. Màu chuyển lên đầu cột — đúng chỗ người ta nhìn để biết cột nào
+  // đang cần xử lý.
   const card = (lead) => (
-    <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-      <div className="mb-1 flex items-start justify-between gap-2">
-        <b className="text-sm">{lead.HoTen}</b>
-        <Tag color={TRANG_THAI_LEAD[lead.TrangThai]?.color} className="!m-0">
-          {TRANG_THAI_LEAD[lead.TrangThai]?.label}
-        </Tag>
-      </div>
-      <Text type="secondary" className="text-xs">
-        {lead.SoDienThoai}
-      </Text>
-      <div className="mt-1 text-xs text-slate-500">
+    <div className="rounded-card border border-ink-200 bg-white p-3 shadow-panel">
+      <b className="block truncate text-sm text-ink-950">{lead.HoTen}</b>
+      <div className="tnum mt-0.5 text-xs text-ink-600">{lead.SoDienThoai}</div>
+      <div className="mt-1 text-[11.5px] text-ink-500">
         {lead.Nguon} · {fmtDateTime(lead.NgayTao)}
       </div>
       {lead.TourQuanTam && (
-        <div className="mt-1 truncate text-xs text-indigo-600">
-          🧳 {lead.TourQuanTam}
-        </div>
+        <div className="mt-1 truncate text-xs text-guide-600">{lead.TourQuanTam}</div>
       )}
 
-      <div className="mt-2 flex items-center justify-between">
+      <div className="mt-2.5 flex items-center gap-2">
         {!lead.NguoiPhuTrachID && lead.TrangThai === 'Moi' ? (
-          <Button size="small" icon={<UserAddOutlined />} onClick={() => takeLead(lead)}>
+          <Button
+            size="small"
+            type="primary"
+            icon={<UserAddOutlined />}
+            onClick={() => takeLead(lead)}
+            className="!rounded-field !text-[12.5px] !font-semibold"
+          >
             Nhận
           </Button>
-        ) : (
-          <span className="text-xs text-slate-400">{lead.ten_nguoi_phu_trach || '—'}</span>
-        )}
+        ) : /* Bảng này chỉ có lead của chính người đang xem (`listMy`), nên in
+             tên người phụ trách ra là lặp lại tên mình ở mọi thẻ — chỗ hẹp nhất
+             của thẻ lại dành cho thông tin không phân biệt được gì. Chỉ hiện khi
+             lead thuộc về người khác, lúc đó nó mới là thông tin. */
+        lead.NguoiPhuTrachID && lead.NguoiPhuTrachID !== user.MaNguoiDung ? (
+          <span className="min-w-0 truncate text-xs text-ink-600">
+            {lead.ten_nguoi_phu_trach || 'Người khác phụ trách'}
+          </span>
+        ) : null}
 
         {lead.TrangThai !== 'ThatBai' && (
           <Dropdown
@@ -148,9 +145,12 @@ export default function ConsultantLeads() {
               onClick: ({ key }) => changeState(lead, key),
             }}
           >
-            <Button size="small" type="text">
-              Đổi trạng thái <DownOutlined />
-            </Button>
+            <button
+              type="button"
+              className="btn btn-ghost !ml-auto !shrink-0 !px-2 !py-1 !text-[12.5px]"
+            >
+              Đổi trạng thái <DownOutlined className="!text-[10px]" />
+            </button>
           </Dropdown>
         )}
       </div>
@@ -158,50 +158,54 @@ export default function ConsultantLeads() {
   );
 
   return (
-    <div className="mx-auto max-w-7xl">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <Title level={3} className="!mb-1">
-            <CustomerServiceOutlined /> Kanban Lead
-          </Title>
-          <Text type="secondary">
-            Quản lý lead phụ trách theo phễu chuyển đổi. Kéo dòng chuyển trạng thái.
-          </Text>
-        </div>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => setOpenCreate(true)}>
-          Thêm lead
-        </Button>
-      </div>
+    <div className="w-full">
+      <SectionHeader
+        marker={loading ? null : `${rows.length} lead`}
+        title="Kanban Lead"
+        description="Lead đang phụ trách, xếp theo phễu chuyển đổi. Đổi trạng thái bằng nút trên từng thẻ."
+        action={
+          <button type="button" className="btn btn-ink" onClick={() => setOpenCreate(true)}>
+            <PlusOutlined /> Thêm lead
+          </button>
+        }
+      />
 
-      {loading ? (
-        <div className="text-center py-16 text-slate-400">Đang tải…</div>
-      ) : (
-        <Row gutter={[12, 12]}>
-          {TRANG_THAI_ORDER.map((s) => (
-            <Col xs={24} sm={12} lg={5} key={s}>
-              <div className="rounded-2xl bg-slate-100 p-3">
-                <div className="mb-3 flex items-center justify-between px-1">
-                  <b className="text-sm">{TRANG_THAI_LEAD[s].label}</b>
-                  <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-slate-500">
-                    {byState[s].length}
-                  </span>
-                </div>
-                <div className="space-y-2">
-                  {byState[s].length === 0 ? (
-                    <div className="py-4 text-center text-xs text-slate-400">
-                      Trống
-                    </div>
-                  ) : (
-                    byState[s].map((lead) => (
-                      <div key={lead.MaYeuCau}>{card(lead)}</div>
-                    ))
-                  )}
-                </div>
+      {/* 5 cột chia đều theo bề ngang còn lại thay vì `lg={5}` của AntD: 5×5=25
+          ô, vượt lưới 24 nên cột "Thất bại" luôn bị đẩy xuống hàng dưới.
+          `min-w-[176px]` là chỗ hay bị bỏ sót: mục flex mặc định có
+          `min-width: auto`, mà thẻ lead lại chứa chữ `truncate` (tức
+          `white-space: nowrap`) nên min-content của thẻ bằng cả câu chưa cắt —
+          rộng hơn `flex-basis` 200px, và cả cột thứ năm bị đẩy xuống hàng dưới
+          dù tổng bề ngang thừa sức chứa. */}
+      <Row gutter={[12, 12]} className="mt-6">
+        {TRANG_THAI_ORDER.map((s) => (
+          <Col flex="1 1 200px" className="min-w-[176px]" key={s}>
+            <div className="rounded-card bg-paper-deep p-3">
+              <div className="mb-3 flex items-center gap-2 px-1">
+                <span className={`h-2 w-2 shrink-0 rounded-full ${leadDot(s)}`} />
+                <b className="min-w-0 flex-1 truncate text-sm text-ink-950">
+                  {TRANG_THAI_LEAD[s].label}
+                </b>
+                <span className="tnum shrink-0 rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-ink-600">
+                  {loading ? '·' : byState[s].length}
+                </span>
               </div>
-            </Col>
-          ))}
-        </Row>
-      )}
+              <div className="space-y-2">
+                {loading ? (
+                  <div className="space-y-2">
+                    <div className="skeleton h-24 rounded-card" />
+                    <div className="skeleton h-24 rounded-card" />
+                  </div>
+                ) : byState[s].length === 0 ? (
+                  <div className="py-4 text-center text-xs text-ink-500">Trống</div>
+                ) : (
+                  byState[s].map((lead) => <div key={lead.MaYeuCau}>{card(lead)}</div>)
+                )}
+              </div>
+            </div>
+          </Col>
+        ))}
+      </Row>
 
       <Modal
         open={openCreate}

@@ -6,12 +6,24 @@ Bao gồm request/response cho Tour, Điểm đến và Lịch khởi hành.
 """
 from datetime import date
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
+# Các mã khu vực chuẩn (giá trị lưu trong DiemDen.KhuVuc). Nhãn tiếng Việt
+# có dấu (Miền Bắc...) được map ở frontend (utils/format.js).
+KhuVucValue = Literal[
+    "Mien Bac", "Mien Trung", "Mien Nam", "Tay Nguyen", "Mien Tay"
+]
+
+
 class DiemDenResponse(BaseModel):
-    """Điểm đến (danh mục)."""
+    """Điểm đến (danh mục).
+
+    SoLuongTour = số dòng Tour tham chiếu (gồm cả tour đã xoá mềm DaXoa),
+    dùng để hiển thị và chặn xoá điểm đến đang được dùng.
+    """
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -19,13 +31,14 @@ class DiemDenResponse(BaseModel):
     TenDiemDen: str
     KhuVuc: str | None = None
     MoTa: str | None = None
+    SoLuongTour: int = 0
 
 
 class DiemDenCreate(BaseModel):
     """Tạo mới một điểm đến (Admin)."""
 
     TenDiemDen: str = Field(..., min_length=2, max_length=200)
-    KhuVuc: str | None = Field(None, max_length=100)
+    KhuVuc: KhuVucValue | None = None
     MoTa: str | None = None
 
 
@@ -33,7 +46,7 @@ class DiemDenUpdate(BaseModel):
     """Cập nhật một phần thông tin điểm đến (Admin)."""
 
     TenDiemDen: str | None = Field(None, min_length=2, max_length=200)
-    KhuVuc: str | None = Field(None, max_length=100)
+    KhuVuc: KhuVucValue | None = None
     MoTa: str | None = None
 
 
@@ -62,6 +75,8 @@ class LichKhoiHanhResponse(BaseModel):
     MaxSeats: int
     SoChoCon: int
     TrangThai: str
+    # Đánh dấu đợt on-demand: "[TOUR RIÊNG] ..." / "[TOUR GHÉP] ..." (NULL = lịch cũ)
+    GhiChu: str | None = None
 
 
 class TourCreate(BaseModel):
@@ -76,6 +91,7 @@ class TourCreate(BaseModel):
     GiaKhuyenMai: Decimal | None = Field(None, gt=0)
     TrangThai: str = Field("DangBan", description="DangBan / NgungBan")
     LoaiTour: str | None = Field(None, max_length=30, description="TraiNghiem / NghiDuong / VanHoaLichSu")
+    HinhAnh: str | None = Field(None, description="URL ảnh trên Cloudflare R2")
 
 
 class TourUpdate(BaseModel):
@@ -90,6 +106,7 @@ class TourUpdate(BaseModel):
     GiaKhuyenMai: Decimal | None = Field(None, gt=0)
     TrangThai: str | None = None
     LoaiTour: str | None = Field(None, max_length=30)
+    HinhAnh: str | None = None
 
 
 class TourResponse(BaseModel):
@@ -107,6 +124,7 @@ class TourResponse(BaseModel):
     GiaKhuyenMai: Decimal | None = None
     TrangThai: str
     LoaiTour: str | None = None
+    HinhAnh: str | None = None
 
     # Trường bổ trợ khi lấy chi tiết tour (không nằm trong bảng Tour)
     ten_diem_den: str | None = None

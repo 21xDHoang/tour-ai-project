@@ -341,33 +341,37 @@ def _nap_demo_diem_den(db) -> None:
     """Bổ sung các điểm đến phổ biến để quản trị viên tạo thêm nhiều tour.
 
     Idempotent theo tên (TenDiemDen unique) — thêm chạy lại nhiều lần vẫn an toàn.
+
+    Tên điểm đến là chữ hiện thẳng cho khách nên phải có dấu. Chuỗi ở đây phải
+    khớp ĐÚNG bản ghi đang có trong CSDL, nếu không lần chạy sau sẽ tạo thêm một
+    điểm đến trùng tên cũ.
     """
     items = [
-        ("Da Nang", "Mien Trung",
+        ("Đà Nẵng", "Mien Trung",
          "Thanh pho bien so 1 Viet Nam, cau Rong, ban dao Son Tra, Ba Na Hills."),
-        ("Hoi An", "Mien Trung",
+        ("Hội An", "Mien Trung",
          "Pho co di san, pho den lung linh, lang nghe va am thuc dac sac."),
-        ("Hue", "Mien Trung",
+        ("Huế", "Mien Trung",
          "Co do voi Dai Noi, chua Thien Mu, lang co va am thuc cung dinh."),
         ("Nha Trang", "Mien Trung",
          "Vinh dep, hon dao, bien xanh, khu nghi duong Vinpearl."),
-        ("Quy Nhon", "Mien Trung",
+        ("Quy Nhơn", "Mien Trung",
          "Bien xanh em de, bai Ky Co, Eo Gio, thanh pho binh yen."),
-        ("Mui Ne - Phan Thiet", "Mien Nam",
+        ("Mũi Né - Phan Thiết", "Mien Nam",
          "Doi cat bay, mui Ke Ga, lang chai binh minh, loai hinh di da ngoai."),
-        ("Vung Tau", "Mien Nam",
+        ("Vũng Tàu", "Mien Nam",
          "Bien gan thanh pho, tuong Chua Kito Vua, ngon hai dang."),
-        ("Con Dao", "Mien Nam",
+        ("Côn Đảo", "Mien Nam",
          "Bien hoang so, rang san ho, nha tu Con Dao, du lich sinh thai."),
-        ("Can Tho", "Mien Tay",
+        ("Cần Thơ", "Mien Tay",
          "Cho noi Cai Rang, vuon trai cay, mien Tay song nuoc."),
-        ("Ha Noi", "Mien Bac",
+        ("Hà Nội", "Mien Bac",
          "Thu do ngang ngan nam van hien, Ho Guom, pho co, van mieu."),
-        ("Sapa", "Mien Bac",
+        ("Sa Pa", "Mien Bac",
          "Thi tran trong may, ruong bac thang, dinh Fansipan, ban Cat Cat."),
-        ("Ninh Binh", "Mien Bac",
+        ("Ninh Bình", "Mien Bac",
          "Ha Long tren can, Trang An, Tam Coc, co do Hoa Lu."),
-        ("Cat Ba", "Mien Bac",
+        ("Cát Bà", "Mien Bac",
          "Dao lon nhat vinh Lan Ha, vuon quoc gia, lan chao bao."),
     ]
     for ten, khu_vuc, mo_ta in items:

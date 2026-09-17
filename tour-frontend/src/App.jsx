@@ -1,9 +1,14 @@
+import { useState } from 'react';
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
 
 import Navbar from './components/Navbar';
+import Footer from './components/Footer';
+import ScrollToTop from './components/ScrollToTop';
 import ProtectedRoute from './components/ProtectedRoute';
 import StaffLayout from './components/StaffLayout';
 import CallBackFloating from './components/CallBackFloating';
+import ChatBox from './components/ChatBox';
+import QuickContactModal from './components/QuickContactModal';
 
 // ---------- Public ----------
 import Login from './pages/Login';
@@ -15,7 +20,6 @@ import BookingHistory from './pages/BookingHistory';
 import CustomTourForm from './pages/CustomTourForm';
 import CamNang from './pages/CamNang';
 import KhuyenMai from './pages/KhuyenMai';
-import LienHe from './pages/LienHe';
 import CustomerProfile from './pages/customer/CustomerProfile';
 
 // ---------- Consultant ----------
@@ -63,22 +67,43 @@ const ROLES = {
   ADMIN: ['Admin'],
 };
 
-/** Layout web khách hàng: header ngang + nút gọi lại nổi. */
+/**
+ * Layout web khách hàng: header ngang + nội dung + footer + widget hỗ trợ nổi.
+ *
+ * Nền là `bg-paper` (giấy ấm #F7F7F4) chứ không phải `bg-slate-50` — lớp xám
+ * lạnh còn sót lại từ bản cũ vốn đè lên nền giấy của hệ thống trên toàn bộ web
+ * khách hàng, làm mọi màu biển báo lệch tông.
+ */
 function PublicLayout() {
+  const [contactModalOpen, setContactModalOpen] = useState(false);
+
   return (
-    <>
-      <Navbar />
+    <div className="flex min-h-screen flex-col bg-paper">
+      <Navbar onOpenContactModal={() => setContactModalOpen(true)} />
       <main className="flex-1">
         <Outlet />
       </main>
+      <Footer onOpenContactModal={() => setContactModalOpen(true)} />
+
+      {/* Floating Multi-Support Widget (Hotline + Zalo + Lead Form) */}
       <CallBackFloating />
-    </>
+
+      {/* AI Assistant ChatBot */}
+      <ChatBox />
+
+      {/* Quick Contact Modal (Shared via Header/Footer triggers) */}
+      <QuickContactModal
+        open={contactModalOpen}
+        onCancel={() => setContactModalOpen(false)}
+      />
+    </div>
   );
 }
 
 export default function App() {
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50">
+    <div className="flex min-h-screen flex-col bg-paper">
+      <ScrollToTop />
       <Routes>
         <Route path="/login" element={<Login />} />
 
@@ -90,9 +115,18 @@ export default function App() {
           <Route path="/custom-tour" element={<CustomTourForm />} />
           <Route path="/cam-nang" element={<CamNang />} />
           <Route path="/vouchers" element={<KhuyenMai />} />
-          <Route path="/lien-he" element={<LienHe />} />
+          {/* Redirect /lien-he cũ về trang chủ */}
+          <Route path="/lien-he" element={<Navigate to="/" replace />} />
           <Route
             path="/book/:maLich"
+            element={
+              <ProtectedRoute>
+                <Booking />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/book"
             element={
               <ProtectedRoute>
                 <Booking />

@@ -2,13 +2,11 @@ import { useEffect, useState } from 'react';
 import {
   Button,
   DatePicker,
-  Divider,
   Drawer,
   Form,
   Input,
   InputNumber,
   Select,
-  Space,
   message,
 } from 'antd';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
@@ -121,10 +119,11 @@ export default function CustomTourEditDrawer({
         </div>
       }
     >
+      {/* Mọi `Form.Item` dưới đây phải giữ nguyên là con TRỰC TIẾP của `Form`
+          (hoặc của hàm render trong `Form.List`). Bọc chúng vào một component
+          mới là đổi gốc đường dẫn `name` và form im lặng mất giá trị. */}
       <Form form={form} layout="vertical">
-        <Divider orientation="left" plain>
-          Thông tin liên hệ
-        </Divider>
+        <h3 className="mb-3 font-display text-title text-ink-950">Thông tin liên hệ</h3>
         <div className="flex flex-wrap gap-3">
           <Form.Item
             name="HoTen"
@@ -147,9 +146,7 @@ export default function CustomTourEditDrawer({
           </Form.Item>
         </div>
 
-        <Divider orientation="left" plain>
-          Yêu cầu chuyến đi
-        </Divider>
+        <h3 className="mb-3 mt-6 font-display text-title text-ink-950">Yêu cầu chuyến đi</h3>
         <div className="flex flex-wrap gap-3">
           <Form.Item name="LoaiDoan" label="Loại đoàn" className="w-44">
             <Select options={LOAI_OPTIONS} />
@@ -174,9 +171,7 @@ export default function CustomTourEditDrawer({
           <Input.TextArea rows={2} />
         </Form.Item>
 
-        <Divider orientation="left" plain>
-          Lịch trình dự kiến
-        </Divider>
+        <h3 className="mb-3 mt-6 font-display text-title text-ink-950">Lịch trình dự kiến</h3>
         <div className="flex flex-wrap gap-4">
           <Form.Item name="SoNguoiLon" label="Người lớn" className="w-40">
             <InputNumber className="w-full" min={0} max={500} />
@@ -189,8 +184,25 @@ export default function CustomTourEditDrawer({
           {(fields, { add, remove }) => (
             <>
               {fields.map(({ key, name, ...rest }) => (
-                <div key={key} className="mb-3 rounded border border-slate-200 p-3">
-                  <div className="mb-2 font-medium text-indigo-600">Ngày {name + 1}</div>
+                <div key={key} className="mb-3 rounded-card border border-ink-200 bg-white p-3">
+                  {/* Ô số thứ tự thay cho dòng chữ "Ngày N" — cùng ngữ pháp với
+                      dải gợi ý ở màn Điều hành: con số nằm trong ô mực, chữ
+                      đứng cạnh chỉ còn đúng một từ để đọc. Nút xóa dời lên
+                      hàng đầu: mỗi thẻ có đúng một vị trí xóa, không phải cuộn
+                      xuống đáy thẻ mới thấy. */}
+                  <div className="mb-2.5 flex items-center gap-2">
+                    <span className="tnum flex h-6 w-6 shrink-0 items-center justify-center rounded-field bg-ink-950 font-display text-[12px] font-bold text-white">
+                      {name + 1}
+                    </span>
+                    <span className="label-sign text-ink-600">Ngày</span>
+                    <button
+                      type="button"
+                      onClick={() => remove(name)}
+                      className="btn btn-ghost !ml-auto !shrink-0 !px-2 !py-1 !text-[12.5px] !text-stop-600"
+                    >
+                      <DeleteOutlined /> Xóa ngày
+                    </button>
+                  </div>
                   <Form.Item
                     {...rest}
                     name={[name, 'DiemDen']}
@@ -210,21 +222,16 @@ export default function CustomTourEditDrawer({
                   <Form.Item {...rest} name={[name, 'YeuCauKhac']} label="Yêu cầu khác">
                     <Input placeholder="Ghi chú riêng" />
                   </Form.Item>
-                  <Button type="text" danger icon={<DeleteOutlined />} onClick={() => remove(name)}>
-                    Xóa ngày
-                  </Button>
                 </div>
               ))}
-              <Button type="dashed" block icon={<PlusOutlined />} onClick={() => add()}>
-                Thêm ngày
-              </Button>
+              <button type="button" className="btn btn-quiet w-full" onClick={() => add()}>
+                <PlusOutlined /> Thêm ngày
+              </button>
             </>
           )}
         </Form.List>
 
-        <Divider orientation="left" plain>
-          Báo giá & trạng thái
-        </Divider>
+        <h3 className="mb-3 mt-6 font-display text-title text-ink-950">Báo giá &amp; trạng thái</h3>
         <div className="flex flex-wrap gap-3">
           <Form.Item name="GiaChot" label="Giá chốt (VNĐ)" className="w-48">
             <InputNumber
@@ -244,10 +251,10 @@ export default function CustomTourEditDrawer({
             </Form.Item>
           )}
         </div>
-        <Space className="mt-2 text-xs text-slate-500">
+        <p className="mt-2 text-body-s text-ink-600">
           Điểm đến từng ngày, nơi ở, dịch vụ ăn uống và giá chốt đều được lưu khi bạn
           nhấn "Lưu thay đổi".
-        </Space>
+        </p>
       </Form>
     </Drawer>
   );

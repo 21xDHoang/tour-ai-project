@@ -1,30 +1,21 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
-  Button,
-  Card,
   Form,
   Input,
-  List,
   Modal,
   Progress,
   Select,
   Space,
-  Spin,
-  Table,
-  Tag,
-  Typography,
   message,
 } from 'antd';
-import {
-  RobotOutlined,
-  ScheduleOutlined,
-  TeamOutlined,
-} from '@ant-design/icons';
+import { RobotOutlined, TeamOutlined } from '@ant-design/icons';
 import { aiApi, guideApi, tourApi } from '../../api/http';
 import { TRANG_THAI_LICH, fmtDate } from '../../utils/format';
-
-const { Title, Text } = Typography;
+import { lichPill } from '../../utils/signs';
+import BangDuLieu from '../../components/ui/BangDuLieu';
+import HangThaoTac from '../../components/ui/HangThaoTac';
+import SectionHeader from '../../components/ui/SectionHeader';
 
 export default function AdminSchedules() {
   const [schedules, setSchedules] = useState([]);
@@ -127,88 +118,104 @@ export default function AdminSchedules() {
     {
       title: 'Tour',
       key: 'tour',
+      ellipsis: true,
       render: (_, r) => (
-        <div>
-          <div className="font-medium">{r.tour.TenTour}</div>
-          <Text type="secondary" className="text-xs">
-            {r.tour.ten_diem_den}
-          </Text>
+        <div className="min-w-0">
+          <div className="truncate font-semibold text-ink-950">{r.tour.TenTour}</div>
+          <div className="truncate text-[11.5px] text-ink-500">{r.tour.ten_diem_den}</div>
         </div>
       ),
     },
     {
       title: 'Khởi hành',
       dataIndex: ['lich', 'NgayKhoiHanh'],
-      render: (v) => fmtDate(v),
+      width: 118,
+      render: (v) => <span className="tnum whitespace-nowrap">{fmtDate(v)}</span>,
     },
     {
       title: 'Kết thúc',
       dataIndex: ['lich', 'NgayKetThuc'],
-      render: (v) => fmtDate(v),
+      width: 118,
+      render: (v) => <span className="tnum whitespace-nowrap">{fmtDate(v)}</span>,
     },
     {
-      title: 'Số chỗ còn',
+      // Chỗ còn là con số, nhưng "hết chỗ" mới là thông tin: 0 nằm lẫn trong
+      // một cột số thì không ai nhận ra. Đổi hẳn thành chữ ở đúng dòng đó —
+      // chữ mang nghĩa, màu nhắc lại.
+      title: 'Chỗ còn',
       dataIndex: ['lich', 'SoChoCon'],
-      render: (v) => <Tag color={v > 0 ? 'green' : 'red'}>{v}</Tag>,
+      width: 100,
+      render: (v) =>
+        v == null ? (
+          <span className="text-ink-400">—</span>
+        ) : v > 0 ? (
+          <span className="tnum">{v}</span>
+        ) : (
+          <span className="chip !px-2 !py-0.5 !text-[11px] bg-stop-50 text-stop-700 border-stop-200">
+            Hết chỗ
+          </span>
+        ),
     },
     {
       title: 'Trạng thái',
       dataIndex: ['lich', 'TrangThai'],
-      render: (v) => {
-        const st = TRANG_THAI_LICH[v];
-        return <Tag color={st?.color}>{st?.label || v}</Tag>;
-      },
+      width: 120,
+      render: (v) => (
+        <span className={`chip !px-2 !py-0.5 !text-[11px] ${lichPill(v)}`}>
+          {TRANG_THAI_LICH[v]?.label || v}
+        </span>
+      ),
     },
     {
       title: 'Thao tác',
       key: 'action',
+      width: 240,
+      // Hai cách làm cùng một việc, ngang hàng nhau — xem chú thích `hienHet`.
       render: (_, r) => (
-        <Space wrap>
-          <Button
-            type="primary"
-            icon={<RobotOutlined />}
-            onClick={() => openSuggest(r)}
-          >
-            Gợi ý AI
-          </Button>
-          <Button icon={<TeamOutlined />} onClick={() => openAssign(r)}>
-            Phân công HDV
-          </Button>
-        </Space>
+        <HangThaoTac
+          hienHet
+          chinh={{
+            nhan: 'Gợi ý AI',
+            icon: <RobotOutlined />,
+            onClick: () => openSuggest(r),
+          }}
+          khac={[
+            {
+              nhan: 'Phân công HDV',
+              icon: <TeamOutlined />,
+              onClick: () => openAssign(r),
+            },
+          ]}
+        />
       ),
     },
   ];
 
-  return (
-    <div className="mx-auto max-w-7xl px-4 py-8">
-      <Card className="shadow-card" bordered={false}>
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <Title level={3} className="!mb-1">
-              <ScheduleOutlined /> Điều hành &amp; Phân công HDV
-            </Title>
-            <Text type="secondary">
-              Dùng AI đề xuất Top 3 HDV phù hợp (UC-13) hoặc phân công thủ công —
-              chỉ hiển thị HDV rảnh trong khoảng thời gian lịch (DR-05).
-            </Text>
-          </div>
-        </div>
+  const rongBang = columns.reduce((s, c) => s + (c.width || 0), 0);
 
-        {loading ? (
-          <div className="flex justify-center py-16">
-            <Spin size="large" />
-          </div>
-        ) : schedules.length === 0 ? (
-          <Alert type="info" showIcon message="Chưa có lịch khởi hành nào." />
-        ) : (
-          <Table
-            rowKey={(r) => r.lich.MaLich}
-            columns={columns}
-            dataSource={schedules}
-            pagination={false}
-          />
-        )}
-      </Card>
+  return (
+    <div className="w-full">
+      <SectionHeader
+        marker={loading ? null : `${schedules.length} lịch`}
+        title="Điều hành & Phân công HDV"
+        description="Dùng AI đề xuất Top 3 HDV phù hợp (UC-13) hoặc phân công thủ công — chỉ hiển thị HDV rảnh trong khoảng thời gian lịch (DR-05)."
+      />
+
+      <div className="mt-6">
+        <BangDuLieu
+          rows={schedules}
+          columns={columns}
+          rowKey={(r) => r.lich.MaLich}
+          x={rongBang}
+          loading={loading}
+          pagination={false}
+          empty={{
+            title: 'Chưa có lịch khởi hành nào',
+            description:
+              'Lịch khởi hành được tạo trong màn Quản trị danh mục tour. Lịch có ở đây thì mới phân công được HDV.',
+          }}
+        />
+      </div>
 
       {/* ------------------------------ Modal Gợi ý AI ------------------------------ */}
       <Modal
@@ -218,15 +225,15 @@ export default function AdminSchedules() {
         title={
           <Space>
             <RobotOutlined /> Gợi ý HDV cho lịch #{suggestLich?.lich.MaLich}
-            {suggestData?.nguon === 'Fallback' && (
-              <Tag color="orange">Fallback</Tag>
-            )}
+            {suggestData?.nguon === 'Fallback' && <span className="chip">Fallback</span>}
           </Space>
         }
       >
         {suggestLoading ? (
-          <div className="flex justify-center py-12">
-            <Spin />
+          <div className="space-y-3 pt-2">
+            <div className="skeleton h-16 rounded-card" />
+            <div className="skeleton h-16 rounded-card" />
+            <div className="skeleton h-16 rounded-card" />
           </div>
         ) : !suggestData ? (
           <Alert type="warning" showIcon message="Không có dữ liệu đề xuất." />
@@ -237,49 +244,41 @@ export default function AdminSchedules() {
                 className="mb-3"
                 type="warning"
                 showIcon
-                message="Gemini tạm không khả dụng — đề xuất dựa trên điểm heuristic."
+                message="Gemini tạm không khả dụng — đề xuất dưới đây do hệ thống tự chấm theo tiêu chí, không phải AI."
               />
             )}
-            <List
-              itemLayout="horizontal"
-              dataSource={suggestData.danh_sach}
-              renderItem={(item, i) => {
+            <ol className="space-y-3">
+              {suggestData.danh_sach.map((item, i) => {
                 const g = guideMap[item.ma_hdv];
                 return (
-                  <List.Item>
-                    <List.Item.Meta
-                      title={
-                        <Space>
-                          <Tag color="blue">#{i + 1}</Tag>
-                          <span className="font-medium">
-                            {g?.HoTen || `HDV #${item.ma_hdv}`}
-                          </span>
-                          {g?.ChuyenMon && (
-                            <Tag>{g.ChuyenMon}</Tag>
-                          )}
-                        </Space>
-                      }
-                      description={
-                        <div>
-                          <Progress
-                            percent={Number(item.diem_tuong_dong)}
-                            strokeColor={{
-                              '0%': '#108ee9',
-                              '100%': '#87d068',
-                            }}
-                            size="small"
-                            format={(p) => `${p}% khớp`}
-                          />
-                          <Text className="text-sm text-slate-600">
-                            {item.ly_do}
-                          </Text>
-                        </div>
-                      }
-                    />
-                  </List.Item>
+                  <li
+                    key={item.ma_hdv ?? i}
+                    className="rounded-card border border-ink-200 bg-white p-3"
+                  >
+                    <div className="flex items-center gap-2">
+                      {/* Thứ hạng có thật (Top 3), nên số thứ tự ở đây là thông
+                          tin chứ không phải trang trí. */}
+                      <span className="tnum flex h-6 w-6 shrink-0 items-center justify-center rounded-field bg-ink-950 text-[12px] font-semibold text-white">
+                        {i + 1}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate font-semibold text-ink-950">
+                        {g?.HoTen || `HDV #${item.ma_hdv}`}
+                      </span>
+                      {g?.ChuyenMon && <span className="chip shrink-0">{g.ChuyenMon}</span>}
+                    </div>
+                    <div className="mt-2">
+                      <Progress
+                        percent={Number(item.diem_tuong_dong)}
+                        strokeColor="#0B5D3B"
+                        size="small"
+                        format={(p) => `${p}% khớp`}
+                      />
+                      <p className="mt-1 text-body-s text-ink-600">{item.ly_do}</p>
+                    </div>
+                  </li>
                 );
-              }}
-            />
+              })}
+            </ol>
           </div>
         )}
       </Modal>
@@ -294,12 +293,10 @@ export default function AdminSchedules() {
         cancelText="Hủy"
         title={`Phân công HDV — lịch #${assignLich?.lich.MaLich}`}
       >
-        <Alert
-          type="info"
-          showIcon
-          className="mb-3"
-          message="Danh sách chỉ gồm HDV RẢNH (DR-05) — HDV đang bận lịch trùng khoảng thời gian đã bị loại."
-        />
+        <p className="mb-3 rounded-card bg-paper p-3 text-body-s text-ink-600">
+          Danh sách chỉ gồm HDV <b className="font-semibold text-ink-950">rảnh</b> (DR-05) — HDV
+          đang bận lịch trùng khoảng thời gian đã bị loại.
+        </p>
         <Form form={assignForm} layout="vertical">
           <Form.Item
             name="MaHDV"

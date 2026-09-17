@@ -1,23 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import {
-  Button,
-  Card,
-  Form,
-  Input,
-  Modal,
-  Popconfirm,
-  Select,
-  Spin,
-  Table,
-  Tag,
-  Typography,
-  message,
-} from 'antd';
-import { EditOutlined, PlusOutlined, ReadOutlined } from '@ant-design/icons';
+import { Form, Input, Modal, Select, message } from 'antd';
+import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { camNangApi } from '../../api/http';
 import { DANH_MUC_CAM_NANG, TRANG_THAI_BAI_VIET, fmtDateTime } from '../../utils/format';
-
-const { Title, Text } = Typography;
+import { baiVietPill } from '../../utils/signs';
+import BangDuLieu from '../../components/ui/BangDuLieu';
+import HangThaoTac from '../../components/ui/HangThaoTac';
+import SectionHeader from '../../components/ui/SectionHeader';
 
 const DANH_MUC_OPTIONS = Object.keys(DANH_MUC_CAM_NANG).map((k) => ({
   value: k,
@@ -113,89 +102,99 @@ export default function AdminCamNang() {
   };
 
   const columns = [
-    { title: 'Tiêu đề', dataIndex: 'TieuDe', ellipsis: true },
+    {
+      title: 'Tiêu đề',
+      dataIndex: 'TieuDe',
+      width: 300,
+      ellipsis: true,
+      render: (v) => <span className="font-semibold text-ink-950">{v}</span>,
+    },
     {
       title: 'Danh mục',
       dataIndex: 'DanhMuc',
-      width: 180,
+      width: 170,
       render: (v) => DANH_MUC_CAM_NANG[v] || v,
     },
     {
-      title: 'Hình ảnh',
+      title: 'Ảnh',
       dataIndex: 'HinhAnhURL',
-      width: 90,
+      width: 74,
       align: 'center',
       render: (v) =>
         v ? (
-          <img src={v} alt="" className="h-10 w-14 rounded object-cover" />
+          <img src={v} alt="" className="h-9 w-12 rounded-sign object-cover" />
         ) : (
-          <Text type="secondary">—</Text>
+          <span className="text-ink-400">—</span>
         ),
     },
     {
       title: 'Trạng thái',
       dataIndex: 'TrangThai',
-      width: 100,
-      render: (v) => {
-        const st = TRANG_THAI_BAI_VIET[v];
-        return <Tag color={st?.color}>{st?.label || v}</Tag>;
-      },
+      width: 108,
+      render: (v) => (
+        <span className={`chip !px-2 !py-0.5 !text-[11px] ${baiVietPill(v)}`}>
+          {TRANG_THAI_BAI_VIET[v]?.label || v}
+        </span>
+      ),
     },
     {
       title: 'Ngày tạo',
       dataIndex: 'NgayTao',
-      width: 140,
-      render: fmtDateTime,
+      width: 148,
+      render: (v) => <span className="tnum whitespace-nowrap">{fmtDateTime(v)}</span>,
     },
     {
+      // Ghim phải: cột thao tác là cột duy nhất phải luôn nhìn thấy khi bảng
+      // cuộn ngang, vì nó chứa việc người dùng vào đây để làm.
       title: 'Thao tác',
       key: 'action',
-      width: 140,
+      width: 176,
+      fixed: 'right',
       render: (_, r) => (
-        <div className="flex gap-2">
-          <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(r)}>
-            Sửa
-          </Button>
-          <Popconfirm title="Xóa bài viết này?" onConfirm={() => remove(r)}>
-            <Button size="small" danger>
-              Xóa
-            </Button>
-          </Popconfirm>
-        </div>
+        <HangThaoTac
+          chinh={{ nhan: 'Sửa', icon: <EditOutlined />, onClick: () => openEdit(r) }}
+          khac={[
+            {
+              nhan: 'Xóa',
+              icon: <DeleteOutlined />,
+              xacNhan: 'Xóa bài viết này?',
+              onClick: () => remove(r),
+            },
+          ]}
+        />
       ),
     },
   ];
 
-  return (
-    <div className="mx-auto max-w-7xl">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <Title level={3} className="!mb-1">
-            <ReadOutlined /> Cẩm nang du lịch
-          </Title>
-          <Text type="secondary">
-            Thêm/sửa bài viết; bài ở trạng thái Hiển thị sẽ xuất hiện ngay trên web khách.
-          </Text>
-        </div>
-        <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-          Thêm bài viết
-        </Button>
-      </div>
+  const rongBang = columns.reduce((s, c) => s + (c.width || 0), 0);
 
-      <Card className="shadow-card" bordered={false}>
-        {loading ? (
-          <div className="flex justify-center py-16">
-            <Spin size="large" />
-          </div>
-        ) : (
-          <Table
-            rowKey="MaBaiViet"
-            columns={columns}
-            dataSource={rows}
-            pagination={{ pageSize: 10 }}
-          />
-        )}
-      </Card>
+  return (
+    <div className="w-full">
+      <SectionHeader
+        marker={loading ? null : `${rows.length} bài`}
+        title="Cẩm nang du lịch"
+        description="Thêm/sửa bài viết; bài ở trạng thái Hiển thị sẽ xuất hiện ngay trên web khách."
+        action={
+          <button type="button" className="btn btn-ink" onClick={openCreate}>
+            <PlusOutlined /> Thêm bài viết
+          </button>
+        }
+      />
+
+      <div className="mt-6">
+        <BangDuLieu
+          rows={rows}
+          columns={columns}
+          rowKey="MaBaiViet"
+          x={rongBang}
+          loading={loading}
+          pageSize={10}
+          empty={{
+            title: 'Chưa có bài viết nào',
+            description: 'Bài đầu tiên sẽ hiện trên web khách ngay khi được đặt ở trạng thái Hiển thị.',
+          }}
+        />
+      </div>
 
       <Modal
         open={open}

@@ -54,3 +54,41 @@ class ThanhToanResponse(BaseModel):
     PhuongThuc: str
     NguoiXuLyID: int
     GhiChu: str | None = None
+
+
+class BankInfoResponse(BaseModel):
+    """Tài khoản nhận chuyển khoản cọc - khách đọc để tự chuyển tiền.
+
+    Trả về cho frontend dựng khối "Thanh toán cọc": số tài khoản, chủ tài khoản,
+    và tiền tố nội dung chuyển khoản. Frontend ghép tiền tố với mã đơn thành
+    "mã thanh toán" (vd TOURAI-899) - đúng chuỗi mà reconcile_webhook dò trong
+    MoTa để đối soát tự động.
+
+    Cả ba trường rỗng = chưa cấu hình ngân hàng; frontend tự ẩn khối.
+    """
+
+    BankId: str = ""
+    SoTaiKhoan: str = ""
+    ChuTaiKhoan: str = ""
+    TienToNoiDung: str = "TOURAI-"
+
+
+class VietQRWebhookRequest(BaseModel):
+    """Payload webhook ngân hàng (VietQR/UNC) gửi về khi có biến động số dư.
+
+    - SoTien: số tiền vào tài khoản.
+    - MoTa: nội dung chuyển khoản - thường chứa mã đơn (vd "#12" / "TOURAI-12")
+      để hệ thống đối soát chính xác.
+    """
+
+    SoTien: Decimal = Field(..., gt=0, description="Số tiền nhận được")
+    MaGiaoDich: str | None = None
+    MoTa: str | None = None
+    ThoiGian: datetime | None = None
+
+
+class VietQRWebhookResponse(BaseModel):
+    """Kết quả đối soát webhook: matched=True khi tìm được đơn để tự xác nhận cọc."""
+
+    matched: bool
+    ma_dat_cho: int | None = None

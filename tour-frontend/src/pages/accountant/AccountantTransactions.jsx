@@ -1,17 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, Card, Select, Space, Spin, Table, Tag, Typography } from 'antd';
-import { AccountBookOutlined, DownloadOutlined } from '@ant-design/icons';
+import { Select } from 'antd';
+import { DownloadOutlined } from '@ant-design/icons';
 import { reportApi } from '../../api/http';
 import { exportToExcel } from '../../utils/exportExcel';
 import { fmtDateTime, fmtVND } from '../../utils/format';
+import BangDuLieu from '../../components/ui/BangDuLieu';
+import ChiSoRail, { ChiSo, KhungChiSo } from '../../components/ui/ChiSo';
+import SectionHeader from '../../components/ui/SectionHeader';
+import ThanhLoc, { OLoc } from '../../components/ui/ThanhLoc';
 
-const { Title, Text } = Typography;
-
+/** Nhãn loại giao dịch. Bảng màu AntD cũ đã bỏ — xem quy tắc màu ở utils/signs.js. */
 const LOAI_GD = {
-  Coc: { label: 'Cọc', color: 'blue' },
-  ThanhToan: { label: 'Thanh toán', color: 'green' },
-  HoanTien: { label: 'Hoàn tiền', color: 'red' },
-  ChiPhi: { label: 'Chi phí', color: 'orange' },
+  Coc: 'Cọc',
+  ThanhToan: 'Thanh toán',
+  HoanTien: 'Hoàn tiền',
+  ChiPhi: 'Chi phí',
 };
 const PHUONG_THUC = {
   TienMat: 'Tiền mặt',
@@ -25,9 +28,16 @@ export default function AccountantTransactions() {
   const [loading, setLoading] = useState(true);
   const [loai, setLoai] = useState(undefined);
   const [phuongThuc, setPhuongThuc] = useState(undefined);
+  /**
+   * Ba con số tổng tính từ chính `rows`, nên chúng cũng sai theo khi lời gọi
+   * hỏng: mảng rỗng cho ra "Thu 0 ₫ · Chi 0 ₫ · Ròng 0 ₫" — một câu khẳng định
+   * về sổ sách, trong khi sự thật chỉ là không đọc được số liệu.
+   */
+  const [loi, setLoi] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoi(false);
     try {
       const params = {};
       if (loai) params.loai_giao_dich = loai;
@@ -35,6 +45,7 @@ export default function AccountantTransactions() {
       setRows(await reportApi.transactions(params));
     } catch {
       setRows([]);
+      setLoi(true);
     } finally {
       setLoading(false);
     }
@@ -71,83 +82,161 @@ export default function AccountantTransactions() {
     );
 
   const columns = [
-    { title: 'Mã GD', dataIndex: 'key', width: 90 },
     {
-      title: 'Nguồn',
-      dataIndex: 'nguon',
-      width: 80,
-      render: (v) => (v === 'Chi' ? <Tag color="orange">Chi</Tag> : <Tag color="blue">Thu</Tag>),
+      title: 'Mã GD',
+      dataIndex: 'key',
+      width: 96,
+      render: (v) => <span className="tnum text-ink-600">{v}</span>,
     },
+    // Nguồn để nguyên chữ, không tô màu: dấu +/− ở cột Số tiền đã là chỗ duy
+    // nhất nói chiều dòng tiền, tô thêm ở đây là cùng một thông tin hai lần.
+    { title: 'Nguồn', dataIndex: 'nguon', width: 88, render: (v) => v || '—' },
     {
+      // Loại giao dịch là phân loại, không phải mức ưu tiên — chữ nói đủ.
       title: 'Loại',
       dataIndex: 'LoaiGiaoDich',
-      width: 110,
-      render: (v) => {
-        const l = LOAI_GD[v];
-        return <Tag color={l?.color}>{l?.label || v}</Tag>;
-      },
+      width: 120,
+      render: (v) => LOAI_GD[v] || v,
     },
     {
       title: 'Số tiền',
       dataIndex: 'SoTien',
       width: 150,
+      align: 'right',
+      // Màu chỉ nhắc lại dấu +/− đã in ngay trước số.
       render: (v, r) => (
-        <b className={r.nguon === 'Chi' ? 'text-red-500' : 'text-green-600'}>
-          {r.nguon === 'Chi' ? '-' : '+'}
+        <span
+          className={`tnum font-semibold ${r.nguon === 'Chi' ? 'text-stop-600' : 'text-guide-600'}`}
+        >
+          {r.nguon === 'Chi' ? '−' : '+'}
           {fmtVND(Math.abs(Number(v)))}
-        </b>
+        </span>
       ),
     },
-    { title: 'Phương thức', dataIndex: 'PhuongThuc', width: 120, render: (v) => (v ? PHUONG_THUC[v] || v : '—') },
-    { title: 'Khách / Đối tác', dataIndex: 'ten_khach_hang', render: (v) => v || '—' },
-    { title: 'Mã đơn', dataIndex: 'MaDatCho', width: 80, render: (v) => v ?? '—' },
-    { title: 'Người xử lý', dataIndex: 'ten_nguoi_xu_ly', width: 130, render: (v) => v || '—' },
-    { title: 'Thời gian', dataIndex: 'NgayGiaoDich', width: 140, render: fmtDateTime },
+    {
+      title: 'Phương thức',
+      dataIndex: 'PhuongThuc',
+      width: 130,
+      render: (v) => (v ? PHUONG_THUC[v] || v : <span className="text-ink-400">—</span>),
+    },
+    {
+      title: 'Khách / Đối tác',
+      dataIndex: 'ten_khach_hang',
+      ellipsis: true,
+      render: (v) => v || <span className="text-ink-400">—</span>,
+    },
+    {
+      title: 'Mã đơn',
+      dataIndex: 'MaDatCho',
+      width: 96,
+      render: (v) => (v == null ? <span className="text-ink-400">—</span> : <span className="tnum">#{v}</span>),
+    },
+    {
+      title: 'Người xử lý',
+      dataIndex: 'ten_nguoi_xu_ly',
+      width: 130,
+      ellipsis: true,
+      render: (v) => v || <span className="text-ink-400">—</span>,
+    },
+    {
+      title: 'Thời gian',
+      dataIndex: 'NgayGiaoDich',
+      width: 148,
+      render: (v) => <span className="tnum whitespace-nowrap">{fmtDateTime(v)}</span>,
+    },
   ];
 
-  return (
-    <div className="mx-auto max-w-7xl px-4 py-8">
-      <Card className="shadow-card" bordered={false}>
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <Title level={3} className="!mb-1">
-              <AccountBookOutlined /> Sổ quỹ / Giao dịch
-            </Title>
-            <Text type="secondary">Toàn bộ giao dịch thu (cọc, thanh toán, hoàn tiền) và chi (phiếu chi NCC).</Text>
-          </div>
-          <Button icon={<DownloadOutlined />} onClick={exportData}>Xuất Excel</Button>
-        </div>
+  const rongBang = columns.reduce((s, c) => s + (c.width || 0), 0);
 
-        <div className="mb-4 flex flex-wrap items-center gap-3">
+  return (
+    <div className="w-full">
+      <SectionHeader
+        marker={loading || loi ? null : `${rows.length} giao dịch`}
+        title="Sổ quỹ / Giao dịch"
+        description="Toàn bộ giao dịch thu (cọc, thanh toán, hoàn tiền) và chi (phiếu chi NCC)."
+        action={
+          <button type="button" className="btn btn-ghost" onClick={exportData}>
+            <DownloadOutlined /> Xuất Excel
+          </button>
+        }
+      />
+
+      <div className="mt-6">
+        {loading || loi ? (
+          // Chưa đọc được số liệu thì không được bày ra một dải số 0 — xem chú
+          // thích ở cờ `loi`.
+          loi ? (
+            <div className="panel flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+              <span className="text-body-s text-ink-600">
+                Không đọc được sổ quỹ. Kiểm tra kết nối rồi thử lại.
+              </span>
+              <button type="button" className="btn btn-ink" onClick={load}>
+                Thử lại
+              </button>
+            </div>
+          ) : (
+            <KhungChiSo cot={3} />
+          )
+        ) : (
+          <ChiSoRail cot={3}>
+            <ChiSo nhan="Tổng thu" giaTri={fmtVND(tongThu)} donVi="₫" />
+            <ChiSo nhan="Tổng chi" giaTri={fmtVND(tongChi)} donVi="₫" />
+            <ChiSo nhan="Ròng" giaTri={fmtVND(tongThu - tongChi)} donVi="₫" manh />
+          </ChiSoRail>
+        )}
+      </div>
+
+      <ThanhLoc className="mt-4">
+        <OLoc nhan="Loại giao dịch" width={200}>
           <Select
             allowClear
-            placeholder="Loại giao dịch"
-            style={{ width: 160 }}
+            placeholder="Tất cả loại"
+            style={{ width: '100%' }}
             value={loai}
             onChange={setLoai}
-            options={Object.keys(LOAI_GD).map((k) => ({ value: k, label: LOAI_GD[k].label }))}
+            options={Object.entries(LOAI_GD).map(([v, l]) => ({ value: v, label: l }))}
           />
+        </OLoc>
+        <OLoc nhan="Phương thức" width={200}>
           <Select
             allowClear
-            placeholder="Phương thức"
-            style={{ width: 160 }}
+            placeholder="Tất cả phương thức"
+            style={{ width: '100%' }}
             value={phuongThuc}
             onChange={setPhuongThuc}
             options={Object.entries(PHUONG_THUC).map(([v, l]) => ({ value: v, label: l }))}
           />
-          <Space>
-            <Text>Thu: <b className="text-green-600">{fmtVND(tongThu)}</b></Text>
-            <Text>Chi: <b className="text-red-500">{fmtVND(tongChi)}</b></Text>
-            <Text>Ròng: <b>{fmtVND(tongThu - tongChi)}</b></Text>
-          </Space>
-        </div>
+        </OLoc>
+      </ThanhLoc>
 
-        {loading ? (
-          <div className="flex justify-center py-16"><Spin size="large" /></div>
-        ) : (
-          <Table rowKey="key" columns={columns} dataSource={rows} pagination={{ pageSize: 10 }} scroll={{ x: 1100 }} />
-        )}
-      </Card>
+      <div className="mt-4">
+        <BangDuLieu
+          rows={rows}
+          columns={columns}
+          rowKey="key"
+          x={rongBang}
+          loading={loading}
+          pageSize={10}
+          empty={
+            loi
+              ? {
+                  title: 'Không tải được sổ quỹ',
+                  description:
+                    'Máy chủ không trả về danh sách giao dịch. Kiểm tra kết nối rồi thử lại.',
+                  action: (
+                    <button type="button" className="btn btn-ink" onClick={load}>
+                      Thử lại
+                    </button>
+                  ),
+                }
+              : {
+                  title: 'Chưa có giao dịch nào',
+                  description:
+                    'Mọi khoản thu từ đơn đặt chỗ và mọi phiếu chi cho nhà cung cấp sẽ được ghi vào đây.',
+                }
+          }
+        />
+      </div>
     </div>
   );
 }

@@ -9,7 +9,6 @@ import {
   Form,
   Input,
   Spin,
-  Tag,
   Typography,
   Upload,
   message,
@@ -101,7 +100,7 @@ export default function CustomerProfile() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
-      <Card className="shadow-card" bordered={false}>
+      <Card className="shadow-panel" bordered={false}>
         {loading ? (
           <div className="flex justify-center py-16">
             <Spin size="large" />
@@ -135,9 +134,13 @@ export default function CustomerProfile() {
                 </Title>
                 <Text type="secondary">{kh?.Email || user?.Email}</Text>
                 <div className="mt-2">
-                  <Tag color={kh?.LoaiKhach === 'ThanThiet' ? 'gold' : 'green'}>
+                  {/* Hạng khách là HẠNG MỤC, không phải mức độ cần hành động —
+                      nên nó không được tô màu. Chữ đã nói đủ ("thân thiết" hay
+                      "thường"); hai màu vàng/xanh cũ chỉ lặp lại điều đó bằng
+                      một bảng màu không thuộc hệ thống. */}
+                  <span className="chip !px-2 !py-0.5 !text-[11px] bg-ink-100 text-ink-600 border-ink-200">
                     {kh?.LoaiKhach === 'ThanThiet' ? 'Khách thân thiết' : 'Khách thường'}
-                  </Tag>
+                  </span>
                   <Text type="secondary" className="text-xs">
                     Mã khách hàng: {kh?.MaKhachHang}
                   </Text>

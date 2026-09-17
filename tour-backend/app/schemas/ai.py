@@ -24,8 +24,8 @@ class SinhNoiDungTuDoRequest(BaseModel):
     """Yêu cầu AI sinh mô tả & lịch trình cho tour ĐANG TẠO (chưa có MaTour)."""
 
     TenTour: str = Field(..., min_length=2, max_length=200)
-    TenDiemDen: str = Field(..., min_length=1, max_length=200)
-    SoNgay: int = Field(..., ge=1, le=30)
+    TenDiemDen: str | None = Field(default="Việt Nam", max_length=200)
+    SoNgay: int | None = Field(default=3, ge=1, le=30)
     MoTa: str | None = None
 
 

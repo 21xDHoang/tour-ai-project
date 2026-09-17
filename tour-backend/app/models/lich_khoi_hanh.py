@@ -24,6 +24,8 @@ class LichKhoiHanh(Base):
     MaxSeats: Mapped[int] = mapped_column(Integer, nullable=False)
     SoChoCon: Mapped[int] = mapped_column(Integer, nullable=False)
     TrangThai: Mapped[str] = mapped_column(String(20), nullable=False, default="MoBan")
+    # GhiChu: đánh dấu đợt mở on-demand ("[TOUR RIÊNG] ..." / "[TOUR GHÉP] ...")
+    GhiChu: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     # Quan hệ
     tour: Mapped["Tour"] = relationship(back_populates="ds_lich")

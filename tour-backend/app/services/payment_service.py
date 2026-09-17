@@ -15,16 +15,22 @@ from decimal import Decimal
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from app.models import NguoiDung
+from app.models import DatCho, NguoiDung
 from app.models.common import now_naive_utc
 from app.repositories.booking_repo import BookingRepository
 from app.repositories.payment_repo import PaymentRepository
 from app.repositories.tour_repo import TourRepository
 from app.schemas.cancellation import HuyTourRequest
-from app.schemas.payment import ThanhToanCocRequest, ThanhToanDuRequest
+from app.schemas.payment import (
+    ThanhToanCocRequest,
+    ThanhToanDuRequest,
+    VietQRWebhookRequest,
+)
 
 # Tỷ lệ cọc tối thiểu theo DR-03
 TI_LE_COC_TOI_THIEU = Decimal("0.3")
+# Sai số cho phép khi đối soát webhook ngân hàng (P1): ±1.000đ
+_SAI_SO_COC = Decimal("1000")
 
 
 def _q2(gia_tri) -> Decimal:
@@ -61,16 +67,18 @@ class PaymentService:
     ):
         """Xác nhận đặt cọc cho đơn đang giữ chỗ (DR-03).
 
-        - Đơn phải ở trạng thái GiuCho và chưa hết hạn 24 giờ.
+        - Đơn phải ở GiuCho / ChoCoc / ChoXacNhanCoc (P2: đơn khách đã báo
+          "đã chuyển khoản" được ưu tiên xác nhận, không chờ hết hạn).
+        - Đơn ChoXacNhanCoc đã tạm dừng đếm ngược 24h -> bỏ qua kiểm tra hết hạn.
         - SoTien >= 30% TongTien, nếu không -> từ chối 400.
         - Cập nhật DaDatCoc, chuyển TrangThai -> DaCoc, ghi giao dịch loại 'Coc'.
         """
         dat = BookingRepository.get_dat_cho_by_id(db, ma_dat_cho)
         if dat is None:
             raise HTTPException(404, "Không tìm thấy đơn đặt chỗ")
-        if dat.TrangThai != "GiuCho":
-            raise HTTPException(400, "Đơn không ở trạng thái chờ đặt cọc (GiuCho)")
-        if dat.HanGiuCho < now_naive_utc():
+        if dat.TrangThai not in ("GiuCho", "ChoCoc", "ChoXacNhanCoc"):
+            raise HTTPException(400, "Đơn không ở trạng thái cho phép đặt cọc")
+        if dat.TrangThai != "ChoXacNhanCoc" and dat.HanGiuCho < now_naive_utc():
             raise HTTPException(400, "Đơn đã hết hạn giữ chỗ, không thể đặt cọc")
 
         # ---- DR-03: cọc tối thiểu 30% ----
@@ -86,6 +94,8 @@ class PaymentService:
 
         dat.DaDatCoc = _q2(Decimal(dat.DaDatCoc) + request.SoTien)
         dat.TrangThai = "DaCoc"
+        # Đơn đã được xác nhận cọc -> dừng tạm dừng đếm ngược (giữ HinhAnhChuyenKhoan để lưu vết)
+        dat.SoGiayConLai = None
         PaymentRepository.create_thanh_toan(
             db,
             MaDatCho=ma_dat_cho,
@@ -165,6 +175,10 @@ class PaymentService:
         if lich is None:
             raise HTTPException(404, "Không tìm thấy lịch khởi hành của đơn")
 
+        # ---- P3: chặn hủy khi tour đã khởi hành (đồng bộ trạng thái hiển thị) ----
+        if date.today() >= lich.NgayKhoiHanh:
+            raise HTTPException(400, "Tour đã khởi hành, không thể hủy")
+
         # ---- DR-04: tính mức phạt theo số ngày còn lại ----
         ngay_huy = date.today()
         delta_ngay = (lich.NgayKhoiHanh - ngay_huy).days
@@ -211,3 +225,58 @@ class PaymentService:
         db.commit()
         db.refresh(huy)
         return huy
+
+    @staticmethod
+    def reconcile_webhook(db: Session, payload: VietQRWebhookRequest) -> dict:
+        """P1: Đối soát biến động số dư ngân hàng -> tự xác nhận cọc.
+
+        Chỉ xử lý các đơn đang ChoXacNhanCoc (khách đã báo "đã chuyển khoản").
+          - Khớp số tiền: abs(SoTien - 30%*TongTien) <= _SAI_SO_COC (1.000đ).
+          - Nếu MoTa chứa mã đơn (vd "TOURAI-12" / "#12") -> ưu tiên đơn đó.
+          - Nhiều ứng viên mà không có gợi ý mã đơn -> từ chối (tránh xác nhận nhầm).
+          - Khớp -> DaCoc, DaDatCoc=SoTien, ghi giao dịch 'Coc' GhiChu webhook.
+        Idempotent: chỉ truy vấn ChoXacNhanCoc nên đơn đã DaCoc/DaThanhToan
+        không bị xử lý lại khi webhook gửi trùng.
+        """
+        ds = (
+            db.query(DatCho)
+            .filter(DatCho.TrangThai == "ChoXacNhanCoc")
+            .all()
+        )
+
+        ung_vien = []
+        for dat in ds:
+            coc_toi_thieu = _q2(Decimal(dat.TongTien) * TI_LE_COC_TOI_THIEU)
+            if abs(payload.SoTien - coc_toi_thieu) <= _SAI_SO_COC:
+                ung_vien.append(dat)
+
+        if not ung_vien:
+            return {"matched": False, "ma_dat_cho": None}
+
+        # Ưu tiên đơn có mã đơn xuất hiện trong nội dung chuyển khoản
+        ma_mo_ta = str(payload.MoTa or "")
+        khop_mo_ta = [d for d in ung_vien if str(d.MaDatCho) in ma_mo_ta]
+        if len(khop_mo_ta) == 1:
+            dat = khop_mo_ta[0]
+        elif len(ung_vien) == 1:
+            dat = ung_vien[0]
+        else:
+            # Nhiều ứng viên, thiếu thông tin phân biệt -> không tự xác nhận
+            return {"matched": False, "ma_dat_cho": None}
+
+        dat.TrangThai = "DaCoc"
+        dat.DaDatCoc = _q2(payload.SoTien)
+        dat.SoGiayConLai = None
+        xu_ly_id = _lay_nguoi_xu_ly(db, None)
+        PaymentRepository.create_thanh_toan(
+            db,
+            MaDatCho=dat.MaDatCho,
+            LoaiGiaoDich="Coc",
+            SoTien=_q2(payload.SoTien),
+            PhuongThuc="ChuyenKhoan",
+            NguoiXuLyID=xu_ly_id,
+            GhiChu="Đối soát tự động webhook ngân hàng",
+        )
+        db.commit()
+        db.refresh(dat)
+        return {"matched": True, "ma_dat_cho": dat.MaDatCho}

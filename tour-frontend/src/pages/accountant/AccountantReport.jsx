@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Card, Col, Empty, Row, Spin, Statistic, Table, Typography } from 'antd';
-import { BarChartOutlined, DollarOutlined } from '@ant-design/icons';
 import { Column, Pie } from '@ant-design/plots';
 import { reportApi } from '../../api/http';
-import { fmtVND } from '../../utils/format';
-
-const { Title, Text } = Typography;
+import { fmtSo, fmtVND } from '../../utils/format';
+import { CHART_COLORS, MAU_DONG_TIEN } from '../../utils/signs';
+import BangDuLieu from '../../components/ui/BangDuLieu';
+import ChiSoRail, { ChiSo, KhungChiSo } from '../../components/ui/ChiSo';
+import EmptyState from '../../components/ui/EmptyState';
+import Khoi, { KhungBieuDo } from '../../components/ui/Khoi';
+import SectionHeader from '../../components/ui/SectionHeader';
 
 const NGAN_XAC = (v) => `₫${(v / 1_000_000).toFixed(1)}tr`;
 
@@ -22,8 +24,18 @@ export default function AccountantReport() {
   const [methods, setMethods] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  /**
+   * Ba lời gọi trên cùng hỏng thì cả ba mảng đều rỗng, và trang sẽ tự vẽ ra một
+   * dải "0 ₫" kèm câu "Chưa có giao dịch nào" — tức là khẳng định doanh thu bằng
+   * không, trong khi sự thật chỉ là không đọc được số liệu. Hai chuyện đó phải
+   * nói khác nhau, nên trạng thái hỏng được ghi nhận riêng chứ không suy ra từ
+   * mảng rỗng.
+   */
+  const [loi, setLoi] = useState(false);
+
   const load = useCallback(async () => {
     setLoading(true);
+    setLoi(false);
     try {
       const [rev, rec, mtd] = await Promise.all([
         reportApi.revenue(),
@@ -37,6 +49,7 @@ export default function AccountantReport() {
       setRevenue([]);
       setReceivables([]);
       setMethods([]);
+      setLoi(true);
     } finally {
       setLoading(false);
     }
@@ -83,110 +96,157 @@ export default function AccountantReport() {
   );
 
   const receivablesColumns = [
-    { title: 'Mã đơn', dataIndex: 'MaDatCho', width: 80 },
-    { title: 'Khách', dataIndex: 'ten_khach_hang' },
-    { title: 'Tour', dataIndex: 'ten_tour' },
-    { title: 'Tổng tiền', dataIndex: 'TongTien', render: fmtVND, width: 130 },
-    { title: 'Đã cọc', dataIndex: 'DaDatCoc', render: fmtVND, width: 130 },
+    {
+      title: 'Mã đơn',
+      dataIndex: 'MaDatCho',
+      width: 74,
+      render: (v) => <span className="tnum font-semibold text-ink-950">#{v}</span>,
+    },
+    { title: 'Khách', dataIndex: 'ten_khach_hang', width: 140, ellipsis: true },
+    { title: 'Tour', dataIndex: 'ten_tour', width: 180, ellipsis: true },
+    {
+      title: 'Tổng tiền',
+      dataIndex: 'TongTien',
+      render: (v) => <span className="tnum">{fmtVND(v)}</span>,
+      width: 125,
+      align: 'right',
+    },
+    {
+      title: 'Đã cọc',
+      dataIndex: 'DaDatCoc',
+      render: (v) => <span className="tnum">{fmtVND(v)}</span>,
+      width: 125,
+      align: 'right',
+    },
     {
       title: 'Còn nợ',
       dataIndex: 'con_lai',
-      width: 130,
-      render: (v) => <b className="text-orange-500">{fmtVND(v)}</b>,
+      width: 125,
+      align: 'right',
+      render: (v) => <span className="tnum font-semibold text-signal-700">{fmtVND(v)}</span>,
     },
   ];
 
+  const rongBang = receivablesColumns.reduce((s, c) => s + (c.width || 0), 0);
+
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8">
-      <div className="mb-4">
-        <Title level={3} className="!mb-1">
-          <BarChartOutlined /> Báo cáo tài chính
-        </Title>
-        <Text type="secondary">
-          Doanh thu, dòng tiền, công nợ và phân bổ theo phương thức thanh toán.
-        </Text>
-      </div>
+    <div className="w-full">
+      <SectionHeader
+        marker={loading || loi ? null : `${receivables.length} đơn`}
+        title="Báo cáo tài chính"
+        description="Doanh thu và dòng tiền theo tháng, công nợ chưa thu, phân bổ theo phương thức thanh toán."
+      />
 
-      <Row gutter={[16, 16]} className="mb-4">
-        <Col xs={24} sm={12} lg={6}>
-          <Card size="small">
-            <Statistic title="Tổng doanh thu (thu vào)" value={totals.doanh_thu} formatter={fmtVND} valueStyle={{ color: '#4b4ee8' }} />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card size="small">
-            <Statistic title="Tổng hoàn tiền" value={totals.hoan_tien} formatter={fmtVND} valueStyle={{ color: '#f5222d' }} />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card size="small">
-            <Statistic title="Dòng tiền ròng" value={totals.dong_tien} formatter={fmtVND} valueStyle={{ color: '#52c41a' }} />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card size="small">
-            <Statistic title="Công nợ (chưa thu)" value={tongCongNo} formatter={fmtVND} valueStyle={{ color: '#fa8c16' }} prefix={<DollarOutlined />} />
-          </Card>
-        </Col>
-      </Row>
-
-      {loading ? (
-        <div className="flex justify-center py-16">
-          <Spin size="large" />
-        </div>
+      {loi ? (
+        // Một lời gọi hỏng là cả ba khối cùng mất số liệu, nên thay cả trang bằng
+        // một lời báo hỏng thay vì để ba khối trống tự nói sai về việc kinh doanh.
+        <EmptyState
+          className="mt-6"
+          title="Không tải được báo cáo"
+          description="Máy chủ không trả về số liệu doanh thu, công nợ và phương thức thanh toán. Kiểm tra kết nối rồi thử lại."
+          action={
+            <button type="button" className="btn btn-ink" onClick={load}>
+              Thử lại
+            </button>
+          }
+        />
       ) : (
         <>
-          <Card className="mb-4 shadow-card" bordered={false}>
-            <Title level={4}>Doanh thu &amp; dòng tiền theo tháng</Title>
-            {columnData.length === 0 ? (
-              <Empty description="Chưa có giao dịch nào." />
-            ) : (
-              <Column
-                data={columnData}
-                xField="thang"
-                yField="gia_tri"
-                colorField="loai"
-                group
-                height={300}
-                legend={{ color: { position: 'top' } }}
-                axis={{ y: { labelFormatter: (v) => NGAN_XAC(v) } }}
-                tooltip={{ channel: 'y', valueFormatter: (v) => fmtVND(v) }}
+          {loading ? (
+            <KhungChiSo cot={4} className="mt-6" />
+          ) : (
+            <ChiSoRail cot={4} className="mt-6">
+              <ChiSo nhan="Doanh thu thu vào" giaTri={fmtSo(totals.doanh_thu)} donVi="₫" />
+              <ChiSo nhan="Tổng hoàn tiền" giaTri={fmtSo(totals.hoan_tien)} donVi="₫" />
+              <ChiSo nhan="Dòng tiền ròng" giaTri={fmtSo(totals.dong_tien)} donVi="₫" manh />
+              <ChiSo
+                nhan="Công nợ chưa thu"
+                giaTri={fmtSo(tongCongNo)}
+                donVi="₫"
+                phu={`Còn lại của ${receivables.length} đơn đã cọc`}
               />
-            )}
-          </Card>
+            </ChiSoRail>
+          )}
 
-          <Row gutter={[16, 16]}>
-            <Col xs={24} lg={10}>
-              <Card className="shadow-card" bordered={false} title="Phân bổ theo phương thức">
-                {pieData.length === 0 ? (
-                  <Empty description="Chưa có giao dịch." className="py-8" />
-                ) : (
-                  <Pie
-                    data={pieData}
-                    angleField="value"
-                    colorField="type"
-                    innerRadius={0.55}
-                    height={280}
-                    legend={{ color: { position: 'bottom' } }}
-                    label={{ text: 'type', position: 'outside' }}
-                    tooltip={{ items: [{ field: 'value', valueFormatter: (v) => fmtVND(v) }] }}
-                  />
-                )}
-              </Card>
-            </Col>
-            <Col xs={24} lg={14}>
-              <Card className="shadow-card" bordered={false} title="Công nợ (đơn đã cọc chưa thanh toán đủ)">
-                <Table
-                  rowKey="MaDatCho"
-                  columns={receivablesColumns}
-                  dataSource={receivables}
-                  pagination={{ pageSize: 8 }}
-                  size="small"
-                  locale={{ emptyText: 'Không có công nợ nào.' }}
+          <Khoi tieuDe="Doanh thu & dòng tiền theo tháng" className="mt-6">
+            {loading ? (
+              <KhungBieuDo cao={300} />
+            ) : columnData.length === 0 ? (
+              <EmptyState
+                title="Chưa có giao dịch nào"
+                description="Biểu đồ hiện ra ngay khi có khoản thu đầu tiên được ghi nhận."
+              />
+            ) : (
+              <div className="panel p-4">
+                <Column
+                  data={columnData}
+                  xField="thang"
+                  yField="gia_tri"
+                  colorField="loai"
+                  group
+                  height={300}
+                  scale={{ color: { range: MAU_DONG_TIEN } }}
+                  legend={{ color: { position: 'top' } }}
+                  axis={{ y: { labelFormatter: (v) => NGAN_XAC(v) } }}
+                  tooltip={{ channel: 'y', valueFormatter: (v) => fmtVND(v) }}
                 />
-              </Card>
-            </Col>
-          </Row>
+              </div>
+            )}
+          </Khoi>
+
+          {/* Bảng công nợ đứng một mình một hàng, không chia cột với biểu đồ tròn.
+              Chia đôi thì ở màn 1440px bảng chỉ được ~640px trong khi sáu cột cần
+              ~770px, và cột "Còn nợ" — cột đúng là lý do bảng này tồn tại — bị
+              đẩy ra ngoài tầm nhìn. */}
+          <Khoi
+            tieuDe="Công nợ chưa thu"
+            dem={loading ? null : `${receivables.length} đơn`}
+            className="mt-6"
+          >
+            <BangDuLieu
+              rows={receivables}
+              columns={receivablesColumns}
+              rowKey="MaDatCho"
+              x={rongBang}
+              loading={loading}
+              pageSize={8}
+              empty={{
+                title: 'Không có công nợ nào',
+                description: 'Mọi đơn đã cọc đều đã được thanh toán đủ.',
+              }}
+            />
+          </Khoi>
+
+          <Khoi tieuDe="Phân bổ theo phương thức" className="mt-6">
+            {loading ? (
+              <KhungBieuDo cao={280} />
+            ) : pieData.length === 0 ? (
+              <EmptyState
+                title="Chưa có giao dịch"
+                description="Phân bổ theo tiền mặt, chuyển khoản và thẻ sẽ hiện ở đây."
+              />
+            ) : (
+              // Vành khuyên có trần bề rộng riêng: kéo nó rộng hết một hàng
+              // 1120px thì đường kính vẫn chỉ bằng chiều cao, phần thừa hai bên
+              // thành khoảng trắng, còn nhãn phương thức thì trôi ra rất xa vành.
+              <div className="panel mx-auto max-w-[560px] p-4">
+                <Pie
+                  data={pieData}
+                  angleField="value"
+                  colorField="type"
+                  innerRadius={0.55}
+                  height={280}
+                  // Ba phương thức là ba hạng mục ngang hàng, không phải một
+                  // thang mức độ — nên lấy ba màu biển báo đặc, không dùng thang
+                  // đỏ-vàng-xanh vốn mang nghĩa tốt/xấu.
+                  scale={{ color: { range: CHART_COLORS.slice(0, 3) } }}
+                  legend={{ color: { position: 'bottom' } }}
+                  label={{ text: 'type', position: 'outside' }}
+                  tooltip={{ items: [{ field: 'value', valueFormatter: (v) => fmtVND(v) }] }}
+                />
+              </div>
+            )}
+          </Khoi>
         </>
       )}
     </div>

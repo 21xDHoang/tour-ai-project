@@ -109,13 +109,19 @@ def seed_khach_hang(db) -> None:
 
 
 def seed_diem_den(db) -> None:
-    """3 điểm đến: Vinh Ha Long, Da Lat, Phu Quoc."""
+    """3 điểm đến: Vịnh Hạ Long, Đà Lạt, Phú Quốc.
+
+    Tên điểm đến là chữ HIỆN THẲNG cho khách (danh sách tour, thẻ tour, bộ lọc
+    điểm đến) nên phải có dấu. So khớp ở đây là so khớp CHUỖI CHÍNH XÁC, nên đổi
+    tên trong tệp này mà chưa đổi trong CSDL là lần chạy sau tạo bản ghi trùng —
+    và `seed_tour` sẽ nổ vì tra không thấy. Sửa tệp và sửa CSDL phải đi cùng nhau.
+    """
     items = [
-        ("Vinh Ha Long", "Mien Bac",
+        ("Vịnh Hạ Long", "Mien Bac",
          "Di san thien nhien the gioi, he thong vinh dao da voi hung vi."),
-        ("Da Lat", "Tay Nguyen",
+        ("Đà Lạt", "Tay Nguyen",
          "Thanh pho ngan hoa, khi hau mat me quanh nam."),
-        ("Phu Quoc", "Mien Nam",
+        ("Phú Quốc", "Mien Nam",
          "Dao ngoc voi bai bien cat trang va he sinh thai bien da dang."),
     ]
     for ten, khu_vuc, mo_ta in items:
@@ -127,9 +133,9 @@ def seed_diem_den(db) -> None:
 
 
 def seed_tour(db) -> None:
-    """2 tour gắn với điểm đến Ha Long (MaDiemDen=1) và Da Lat (MaDiemDen=2)."""
-    hl = db.query(DiemDen).filter(DiemDen.TenDiemDen == "Vinh Ha Long").first()
-    dl = db.query(DiemDen).filter(DiemDen.TenDiemDen == "Da Lat").first()
+    """2 tour gắn với điểm đến Vịnh Hạ Long (MaDiemDen=1) và Đà Lạt (MaDiemDen=2)."""
+    hl = db.query(DiemDen).filter(DiemDen.TenDiemDen == "Vịnh Hạ Long").first()
+    dl = db.query(DiemDen).filter(DiemDen.TenDiemDen == "Đà Lạt").first()
     items = [
         (hl.MaDiemDen, "Ha Long - Lan Ha 3N2D",
          "Tour kham pha vinh Ha Long va Lan Ha.",
@@ -371,19 +377,19 @@ def seed_tour_loai(db) -> None:
             print(f"    + Gan LoaiTour={t.LoaiTour} cho Tour {t.TenTour}")
 
     # 2) Điểm đến Cố đô Huế (cho loại văn hóa lịch sử)
-    hue = db.query(DiemDen).filter(DiemDen.TenDiemDen == "Co do Hue").first()
+    hue = db.query(DiemDen).filter(DiemDen.TenDiemDen == "Cố đô Huế").first()
     if hue is None:
         hue = DiemDen(
-            TenDiemDen="Co do Hue",
+            TenDiemDen="Cố đô Huế",
             KhuVuc="Mien Trung",
             MoTa="Di san van hoa the gioi, kinh thanh Hue va he thong lang tam.",
         )
         db.add(hue)
         db.flush()
-        print("    + Tao DiemDen Co do Hue")
+        print("    + Tao DiemDen Cố đô Huế")
     db.flush()
 
-    phu_quoc = db.query(DiemDen).filter(DiemDen.TenDiemDen == "Phu Quoc").first()
+    phu_quoc = db.query(DiemDen).filter(DiemDen.TenDiemDen == "Phú Quốc").first()
 
     def _them_tour(diem_den, ten, mo_ta, lich_trinh, so_ngay, gia, khuyen_mai,
                    loai, ngay_di, ngay_ve):

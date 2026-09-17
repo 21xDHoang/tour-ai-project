@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  Button,
-  Card,
   DatePicker,
   Form,
   Input,
@@ -9,18 +7,20 @@ import {
   Modal,
   Select,
   Space,
-  Spin,
-  Table,
-  Tag,
-  Typography,
   message,
 } from 'antd';
-import { PlusOutlined, WalletOutlined } from '@ant-design/icons';
+import {
+  CheckCircleOutlined,
+  PlusOutlined,
+  StopOutlined,
+} from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { voucherApi } from '../../api/http';
 import { LOAI_GIAM, fmtVND } from '../../utils/format';
-
-const { Title, Text } = Typography;
+import { batTatPill } from '../../utils/signs';
+import BangDuLieu from '../../components/ui/BangDuLieu';
+import HangThaoTac from '../../components/ui/HangThaoTac';
+import SectionHeader from '../../components/ui/SectionHeader';
 
 /** Quản lý mã giảm giá / Voucher (Admin - Tiếp thị). */
 export default function AdminVouchers() {
@@ -80,90 +80,105 @@ export default function AdminVouchers() {
   };
 
   const columns = [
-    { title: 'Mã', dataIndex: 'MaCode' },
-    { title: 'Mô tả', dataIndex: 'MoTa', ellipsis: true },
     {
+      title: 'Mã',
+      dataIndex: 'MaCode',
+      width: 118,
+      render: (v) => <span className="tnum font-semibold text-ink-950">{v}</span>,
+    },
+    { title: 'Mô tả', dataIndex: 'MoTa', width: 200, ellipsis: true },
+    {
+      // Hình thức giảm giá là một lựa chọn, không phải mức ưu tiên — chữ nói đủ,
+      // không cần tô màu.
       title: 'Loại',
       dataIndex: 'LoaiGiam',
-      width: 100,
-      render: (v) => {
-        const l = LOAI_GIAM[v];
-        return <Tag color={l?.color}>{l?.label || v}</Tag>;
-      },
+      width: 104,
+      render: (v) => LOAI_GIAM[v]?.label || v,
     },
     {
       title: 'Giá trị',
       dataIndex: 'GiaTri',
-      width: 130,
-      render: (v, r) =>
-        r.LoaiGiam === 'PhanTram' ? `${Number(v)}%` : fmtVND(v),
+      width: 124,
+      align: 'right',
+      render: (v, r) => (
+        <span className="tnum font-semibold text-ink-950">
+          {r.LoaiGiam === 'PhanTram' ? `${Number(v)}%` : fmtVND(v)}
+        </span>
+      ),
     },
     {
       title: 'Hạn dùng',
       dataIndex: 'HanSuDung',
-      render: (v) => dayjs(v).format('DD/MM/YYYY'),
+      width: 118,
+      render: (v) => <span className="tnum whitespace-nowrap">{dayjs(v).format('DD/MM/YYYY')}</span>,
     },
     {
       title: 'Lượt dùng',
       key: 'usage',
-      width: 100,
-      render: (_, r) => `${r.SoLanDaDung}/${r.SoLanToiDa}`,
+      width: 104,
+      align: 'right',
+      render: (_, r) => (
+        <span className="tnum">
+          {r.SoLanDaDung}/{r.SoLanToiDa}
+        </span>
+      ),
     },
     {
       title: 'Trạng thái',
       dataIndex: 'TrangThai',
-      width: 100,
+      width: 112,
       render: (v) => (
-        <Tag color={v === 'Active' ? 'green' : 'red'}>
+        <span className={`chip !px-2 !py-0.5 !text-[11px] ${batTatPill(v)}`}>
           {v === 'Active' ? 'Hiệu lực' : 'Hết hạn'}
-        </Tag>
+        </span>
       ),
     },
     {
       title: 'Thao tác',
       key: 'action',
-      width: 120,
+      width: 122,
+      fixed: 'right',
       render: (_, r) => (
-        <Button
-          size="small"
-          onClick={() => toggleActive(r, r.TrangThai !== 'Active')}
-        >
-          {r.TrangThai === 'Active' ? 'Vô hiệu' : 'Kích hoạt'}
-        </Button>
+        <HangThaoTac
+          chinh={{
+            nhan: r.TrangThai === 'Active' ? 'Vô hiệu' : 'Kích hoạt',
+            icon: r.TrangThai === 'Active' ? <StopOutlined /> : <CheckCircleOutlined />,
+            onClick: () => toggleActive(r, r.TrangThai !== 'Active'),
+          }}
+        />
       ),
     },
   ];
 
-  return (
-    <div className="mx-auto max-w-7xl">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <Title level={3} className="!mb-1">
-            <WalletOutlined /> Mã giảm giá & Khuyến mãi
-          </Title>
-          <Text type="secondary">
-            Tạo mã coupon theo % hoặc số tiền; mã Active sẽ hiển thị trên web khách.
-          </Text>
-        </div>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>
-          Tạo mã
-        </Button>
-      </div>
+  const rongBang = columns.reduce((s, c) => s + (c.width || 0), 0);
 
-      <Card className="shadow-card" bordered={false}>
-        {loading ? (
-          <div className="flex justify-center py-16">
-            <Spin size="large" />
-          </div>
-        ) : (
-          <Table
-            rowKey="MaGiamGia"
-            columns={columns}
-            dataSource={rows}
-            pagination={{ pageSize: 10 }}
-          />
-        )}
-      </Card>
+  return (
+    <div className="w-full">
+      <SectionHeader
+        marker={loading ? null : `${rows.length} mã`}
+        title="Mã giảm giá & Khuyến mãi"
+        description="Tạo mã coupon theo % hoặc số tiền; mã Active sẽ hiển thị trên web khách."
+        action={
+          <button type="button" className="btn btn-ink" onClick={() => setOpen(true)}>
+            <PlusOutlined /> Tạo mã
+          </button>
+        }
+      />
+
+      <div className="mt-6">
+        <BangDuLieu
+          rows={rows}
+          columns={columns}
+          rowKey="MaGiamGia"
+          x={rongBang}
+          loading={loading}
+          pageSize={10}
+          empty={{
+            title: 'Chưa có mã giảm giá nào',
+            description: 'Mã tạo ở đây ở trạng thái Hiệu lực sẽ hiện trên web khách.',
+          }}
+        />
+      </div>
 
       <Modal
         open={open}

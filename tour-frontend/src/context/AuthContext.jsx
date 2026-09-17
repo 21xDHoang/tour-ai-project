@@ -30,6 +30,22 @@ export function AuthProvider({ children }) {
     return data.user;
   }, []);
 
+  /**
+   * Tạo tài khoản khách hàng rồi vào thẳng, không bắt đăng nhập lại.
+   *
+   * `/auth/register` chỉ trả về thông tin user chứ không trả token (xem
+   * app/routers/auth.py), nên phải gọi tiếp `login` để lấy token. Dùng lại
+   * chính `login` thay vì tự ghi token vào localStorage: chỉ có một chỗ biết
+   * cách lưu phiên đăng nhập, nên không có nguy cơ hai đường lưu lệch nhau.
+   */
+  const register = useCallback(
+    async (data) => {
+      await authApi.register(data);
+      return login({ Email: data.Email, MatKhau: data.MatKhau });
+    },
+    [login],
+  );
+
   const logout = useCallback(() => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -51,7 +67,7 @@ export function AuthProvider({ children }) {
   }, [logout]);
 
   return (
-    <AuthContext.Provider value={{ user, loading, setLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, setLoading, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );

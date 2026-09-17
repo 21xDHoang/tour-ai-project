@@ -2,30 +2,429 @@
 @tailwind components;
 @tailwind utilities;
 
-html,
-body,
-#root {
-  min-height: 100%;
+/* ============================================================================
+   Đi Thôi Travel — nền tảng trình bày
+   Ngôn ngữ: biển báo & cung đường. Nền giấy sáng, mực in, viền 1px làm kết cấu.
+   ========================================================================= */
+
+@layer base {
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    font-family: 'Be Vietnam Pro', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    background: #f7f7f4;
+    color: #14161a;
+    font-size: 15px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-variant-numeric: tabular-nums;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  .font-display {
+    font-family: Archivo, system-ui, sans-serif;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Tiêu đề không mồ côi chữ cuối, đoạn văn không gãy chữ cuối dòng. */
+  h1, h2, h3, h4 {
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+
+  /* Vòng focus nhìn thấy rõ trên mọi nền — bắt buộc cho điều hướng bàn phím. */
+  :focus-visible {
+    outline: 3px solid #0b5d3b;
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+  /* Nền mực thì đổi sang vàng cho đủ tương phản. */
+  .on-ink :focus-visible {
+    outline-color: #ffcd00;
+  }
+
+  ::selection {
+    background: #ffcd00;
+    color: #14161a;
+  }
+
+  /* Thanh cuộn mảnh, màu mực nhạt. */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #efefe9;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #c4c7cc;
+    border: 3px solid #efefe9;
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #9da2a9;
+  }
+
+  /* Ẩn thanh cuộn cho các rail cuộn ngang. */
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 }
 
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
-    'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
-  background: #f5f7fa;
-  color: #1f2937;
-  -webkit-font-smoothing: antialiased;
+@layer components {
+  /* --- Khung trang ------------------------------------------------------- */
+  /* Một khung duy nhất cho toàn site, thay cho max-w-7xl rải rác 34 chỗ. */
+  .shell {
+    width: 100%;
+    max-width: 1240px;
+    margin-inline: auto;
+    padding-inline: 20px;
+  }
+  @media (min-width: 640px) {
+    .shell {
+      padding-inline: 32px;
+    }
+  }
+
+  /* Nhịp dọc giữa các khối — một thang duy nhất. */
+  .section {
+    padding-block: clamp(56px, 7vw, 88px);
+  }
+  .section-tight {
+    padding-block: clamp(40px, 5vw, 64px);
+  }
+
+  /* --- Kết cấu ----------------------------------------------------------- */
+  /* Viền mực 1px là thiết bị kết cấu chính, thay cho bóng xám mềm. */
+  .panel {
+    background: #ffffff;
+    border: 1px solid #dfe1e4;
+    border-radius: 10px;
+  }
+
+  .rule {
+    border: 0;
+    border-top: 1px solid #dfe1e4;
+  }
+
+  /* Vạch kẻ dọc kiểu giải phân cách đường — dùng cho rail điểm đến. */
+  .road-dash {
+    background-image: repeating-linear-gradient(
+      to right,
+      #c4c7cc 0 14px,
+      transparent 14px 26px
+    );
+    height: 2px;
+  }
+
+  /* --- Thanh biển báo: thiết bị chữ ký -------------------------------- */
+  /* Dải mực mảnh mang chevron + địa danh + số ngày. Thay cho cụm 5 badge. */
+  .sign-bar {
+    background: #14161a;
+    color: #ffffff;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  /* --- Nút bấm ----------------------------------------------------------- */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border-radius: 6px;
+    font-family: Archivo, system-ui, sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    line-height: 1;
+    /* Nhãn nút là một đơn vị, không phải một câu — xuống dòng giữa nhãn thì
+       nút méo và mất cân đối so với phần còn lại của hàng. */
+    white-space: nowrap;
+    padding: 13px 20px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: transform 0.16s cubic-bezier(0.22, 0.75, 0.24, 1),
+      box-shadow 0.16s cubic-bezier(0.22, 0.75, 0.24, 1),
+      background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+  }
+  .btn:disabled,
+  .btn[aria-disabled='true'] {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Nút chính: lún xuống bóng cứng khi bấm — phản hồi rõ như bấm công tắc. */
+  .btn-ink {
+    background: #14161a;
+    color: #ffffff;
+    box-shadow: 3px 3px 0 0 #c4c7cc;
+  }
+  .btn-ink:hover:not(:disabled) {
+    background: #2c3037;
+    transform: translate(-1px, -1px);
+    box-shadow: 4px 4px 0 0 #c4c7cc;
+  }
+  .btn-ink:active:not(:disabled) {
+    transform: translate(2px, 2px);
+    box-shadow: 1px 1px 0 0 #c4c7cc;
+  }
+
+  .btn-guide {
+    background: #0b5d3b;
+    color: #ffffff;
+    box-shadow: 3px 3px 0 0 #c9e5d6;
+  }
+  .btn-guide:hover:not(:disabled) {
+    background: #094c30;
+    transform: translate(-1px, -1px);
+    box-shadow: 4px 4px 0 0 #c9e5d6;
+  }
+  .btn-guide:active:not(:disabled) {
+    transform: translate(2px, 2px);
+    box-shadow: 1px 1px 0 0 #c9e5d6;
+  }
+
+  .btn-signal {
+    background: #ffcd00;
+    color: #14161a;
+    box-shadow: 3px 3px 0 0 #14161a;
+  }
+  .btn-signal:hover:not(:disabled) {
+    background: #ffda3d;
+    transform: translate(-1px, -1px);
+    box-shadow: 4px 4px 0 0 #14161a;
+  }
+  .btn-signal:active:not(:disabled) {
+    transform: translate(2px, 2px);
+    box-shadow: 1px 1px 0 0 #14161a;
+  }
+
+  .btn-quiet {
+    background: #ffffff;
+    color: #14161a;
+    border-color: #dfe1e4;
+  }
+  .btn-quiet:hover:not(:disabled) {
+    border-color: #9da2a9;
+    background: #f7f7f8;
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: #42474f;
+    padding: 9px 12px;
+  }
+  .btn-ghost:hover:not(:disabled) {
+    background: #edeeF0;
+    color: #14161a;
+  }
+
+  /* Trên nền mực tối. */
+  .btn-onink {
+    background: transparent;
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.32);
+  }
+  .btn-onink:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.6);
+  }
+
+  /* --- Chip / nhãn ------------------------------------------------------- */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 9999px;
+    border: 1px solid #dfe1e4;
+    padding: 3px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.5;
+  }
+
+  /* Bộ lọc dạng chip — trạng thái chọn rõ ràng, không chỉ đổi màu chữ. */
+  .chip-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 9999px;
+    border: 1px solid #dfe1e4;
+    background: #ffffff;
+    color: #42474f;
+    padding: 8px 15px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color 0.16s ease, background-color 0.16s ease,
+      color 0.16s ease;
+  }
+  .chip-filter:hover {
+    border-color: #9da2a9;
+    color: #14161a;
+  }
+  .chip-filter[aria-pressed='true'] {
+    background: #14161a;
+    border-color: #14161a;
+    color: #ffffff;
+  }
+
+  /* --- Trạng thái -------------------------------------------------------- */
+  /* Khung xương khi đang tải. */
+  .skeleton {
+    background: linear-gradient(90deg, #efefe9 25%, #e7e7e0 50%, #efefe9 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite;
+  }
+
+  /* Nhịp thở cho dấu hiệu "đang giữ chỗ" — chỉ dùng cho thông tin có hạn. */
+  .pulse-mark {
+    animation: pulseMark 2s ease-in-out infinite;
+  }
+
 }
 
-/* Scrollbar mảnh cho màn hình quản trị */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+@layer utilities {
+  /* Nền mực: đổi màu chữ mặc định cho cả vùng tối. */
+  .on-ink {
+    background: #14161a;
+    color: #ffffff;
+  }
+
+  /* Số liệu, mã đơn, giá — luôn thẳng cột. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+  }
+
+  /* Nhãn biển báo: IN HOA + giãn chữ — giọng nhãn của cả hệ giao diện.
+     Chữ IN HOA ở đây là lựa chọn bắt nguồn từ đề bài (biển báo Việt Nam in
+     hoa toàn bộ), không phải kiểu nhãn trang trí đặt trên mọi tiêu đề.
+     Vì vậy nó chỉ dùng cho nhãn MANG DỮ LIỆU: tên trường, số ngày, vai trò,
+     địa danh trong thanh biển báo. Không dùng làm dòng mào phía trên tiêu đề —
+     đó là thứ lặp lại mà không mang thêm thông tin gì. */
+  .label-sign {
+    font-family: Archivo, system-ui, sans-serif;
+    font-weight: 800;
+    font-size: 12px;
+    line-height: 1;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  /* Hiệu ứng gạch chân chạy khi hover — dùng cho link trong nội dung. */
+  .link-route {
+    background-image: linear-gradient(#0b5d3b, #0b5d3b);
+    background-size: 0% 1.5px;
+    background-position: 0 100%;
+    background-repeat: no-repeat;
+    transition: background-size 0.25s cubic-bezier(0.22, 0.75, 0.24, 1);
+  }
+  .link-route:hover {
+    background-size: 100% 1.5px;
+  }
 }
-::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 4px;
+
+/* ============================================================================
+   Ghi đè lên lớp nội bộ của AntD.
+   =========================================================================
+   KHỐI NÀY KHÔNG ĐƯỢC NẰM TRONG `@layer`. Tailwind 3 lọc bỏ CSS nằm trong
+   `@layer components`/`@layer utilities` theo cùng cách nó lọc utility: rule
+   nào không tìm thấy tên lớp trong file nguồn thì bị xoá khỏi bản dựng. Mà
+   `ant-menu-item-selected`, `ant-table-tbody`… là lớp do AntD sinh ra lúc
+   chạy — không bao giờ có mặt trong file nguồn nào. Đặt trong layer thì rule
+   biến mất im lặng: trang vẫn chạy, chỉ là gờ vàng và mật độ bảng không hề
+   xuất hiện, và không có cảnh báo nào để lần ra.
+   Viết trần ở đây thì Tailwind giữ nguyên, và vì nằm sau `@layer utilities`
+   trong file nên vẫn thắng được style của AntD.
+   ========================================================================= */
+
+/* Mục menu đang mở: thanh chạy hết chiều ngang + gờ vàng bên trái.
+   AntD chỉ tô nền mục đang chọn nên phần gờ phải thêm ở đây — và gờ vàng
+   chính là chi tiết khiến thanh điều hướng đọc ra "biển báo" chứ không phải
+   "menu admin" chung chung.
+   Không cần !important: AntD 5 bọc style trong :where() nên độ ưu tiên của nó
+   thấp hơn selector ba lớp ở đây. */
+.ant-menu-dark.ant-menu-inline .ant-menu-item-selected::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 3px;
+  background: #ffcd00;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+.ant-menu-dark.ant-menu-inline .ant-menu-item-selected {
+  border-radius: 0;
+}
+
+/* Nhãn nhóm menu dùng đúng giọng nhãn biển báo của hệ thống. Chữ đã in hoa
+   sẵn trong StaffLayout; ở đây chỉ áp font và độ giãn cho khớp `.label-sign`. */
+.ant-menu-dark .ant-menu-item-group-title {
+  font-family: Archivo, system-ui, sans-serif;
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: #767c85;
+}
+
+/* Bảng rất dày — dùng cho hai màn mà mỗi dòng vốn bị nhồi nhiều thứ
+   (Chăm sóc khách, Lịch khởi hành). Ghép thêm class của chính wrapper vào
+   selector để chắc chắn thắng style của AntD, không phải dùng !important. */
+.ant-table-wrapper.bang-day.day-chat .ant-table-tbody > tr > td {
+  padding-block: 6px;
+}
+
+@keyframes pulseMark {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* ============================================================================
+   Tôn trọng lựa chọn giảm chuyển động của người dùng.
+   ========================================================================= */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .btn:hover:not(:disabled),
+  .btn:active:not(:disabled) {
+    transform: none !important;
+  }
 }

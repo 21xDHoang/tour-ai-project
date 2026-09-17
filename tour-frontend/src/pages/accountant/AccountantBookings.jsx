@@ -3,7 +3,6 @@ import { useLocation } from 'react-router-dom';
 import {
   Alert,
   Button,
-  Card,
   DatePicker,
   Descriptions,
   Drawer,
@@ -13,12 +12,7 @@ import {
   Modal,
   Select,
   Space,
-  Spin,
-  Statistic,
-  Table,
   Tabs,
-  Tag,
-  Typography,
   message,
 } from 'antd';
 import {
@@ -32,20 +26,25 @@ import {
 import dayjs from 'dayjs';
 import { bookingApi, payableApi, paymentApi, reportApi } from '../../api/http';
 import CountdownTimer from '../../components/CountdownTimer';
+import BangDuLieu from '../../components/ui/BangDuLieu';
+import ChiSoRail, { ChiSo } from '../../components/ui/ChiSo';
+import HangThaoTac from '../../components/ui/HangThaoTac';
+import SectionHeader from '../../components/ui/SectionHeader';
+import ThanhLoc, { OLoc } from '../../components/ui/ThanhLoc';
+import { donPill, nccPill } from '../../utils/signs';
 import {
   TRANG_THAI_DAT_CHO,
   fmtDate,
   fmtDateTime,
+  fmtSo,
   fmtVND,
 } from '../../utils/format';
 
-const TRANG_THAI_NCC = {
-  ChuaTra: { label: 'Chưa trả', color: 'red' },
-  TraMotPhan: { label: 'Trả một phần', color: 'gold' },
-  DaTatToan: { label: 'Đã tất toán', color: 'green' },
+const TRANG_THAI_NCC_LABEL = {
+  ChuaTra: 'Chưa trả',
+  TraMotPhan: 'Trả một phần',
+  DaTatToan: 'Đã tất toán',
 };
-
-const { Title, Text } = Typography;
 
 const PHUONG_THUC = [
   { value: 'TienMat', label: 'Tiền mặt' },
@@ -248,6 +247,34 @@ export default function AccountantBookings() {
     }
   };
 
+  /** P2: kế toán từ chối xác nhận cọc -> đơn quay lại Giữ chỗ, nối lại đếm ngược. */
+  const rejectDeposit = async () => {
+    if (!depositItem) return;
+    setDepositSubmitting(true);
+    try {
+      const res = await bookingApi.huyXacNhanCoc(depositItem.MaDatCho);
+      message.success(`Đơn #${res.MaDatCho} quay lại trạng thái giữ chỗ`);
+      setDepositItem(null);
+      load();
+    } catch (err) {
+      message.error(err.response?.data?.detail || 'Từ chối xác nhận cọc thất bại');
+    } finally {
+      setDepositSubmitting(false);
+    }
+  };
+
+  const confirmRejectDeposit = () => {
+    Modal.confirm({
+      title: 'Từ chối xác nhận cọc?',
+      content:
+        'Đơn sẽ quay lại trạng thái Giữ chỗ 24h và tiếp tục đếm ngược từ thời điểm khách báo đã chuyển khoản.',
+      okText: 'Từ chối',
+      okButtonProps: { danger: true },
+      cancelText: 'Đóng',
+      onOk: rejectDeposit,
+    });
+  };
+
   const openFull = (r) => {
     setFullItem(r);
     fullForm.resetFields();
@@ -330,90 +357,123 @@ export default function AccountantBookings() {
 
   const columns = useMemo(
     () => [
-      { title: 'Mã đơn', dataIndex: 'MaDatCho', width: 80 },
+      { title: 'Mã đơn', dataIndex: 'MaDatCho', width: 76 },
       {
         title: 'Khách hàng',
         dataIndex: 'ten_khach_hang',
+        width: 140,
+        render: (v) => <span className="font-semibold text-ink-950">{v}</span>,
       },
       {
         title: 'Tour',
         dataIndex: 'ten_tour',
+        width: 250,
         render: (v, r) => (
-          <div>
-            <div className="font-medium">{v}</div>
-            <Text type="secondary" className="text-xs">
+          <div className="min-w-0">
+            <div className="truncate font-medium text-ink-950">{v}</div>
+            <div className="truncate text-[12px] text-ink-600">
               {r.ten_diem_den} · khởi hành {fmtDate(r.ngay_khoi_hanh)}
-            </Text>
+            </div>
           </div>
         ),
       },
-      { title: 'Số khách', dataIndex: 'SoKhach', width: 80, align: 'center' },
+      { title: 'Số khách', dataIndex: 'SoKhach', width: 64, align: 'center' },
       {
-        title: 'Tổng tiền',
-        dataIndex: 'TongTien',
-        render: (v) => <b>{fmtVND(v)}</b>,
-      },
-      {
-        title: 'Đã cọc',
-        dataIndex: 'DaDatCoc',
-        render: (v) => fmtVND(v),
+        // Tổng tiền và đã cọc là hai nửa của cùng một câu hỏi ("hợp đồng này
+        // đã thu được bao nhiêu") nên đứng chung một ô: đọc dọc là thấy ngay
+        // đơn nào chưa đạt mốc 30% mà không phải quét sang cột khác.
+        title: 'Tổng tiền / Đã cọc',
+        key: 'tien',
+        width: 125,
+        align: 'right',
+        render: (_, r) => (
+          <div className="tnum">
+            <div className="font-semibold text-ink-950">{fmtVND(r.TongTien)}</div>
+            <div className="text-[12px] text-ink-600">cọc {fmtVND(r.DaDatCoc)}</div>
+          </div>
+        ),
       },
       {
         title: 'Còn thiếu',
         key: 'conThieu',
+        width: 122,
+        align: 'right',
         render: (_, r) => {
           const shortage = conThieu(r);
           return shortage > 0 ? (
-            <Text className="font-medium text-orange-500">{fmtVND(shortage)}</Text>
+            <span className="tnum font-semibold text-signal-700">{fmtVND(shortage)}</span>
           ) : (
-            <Tag color="green">Đủ</Tag>
+            <span className="chip !px-2 !py-0.5 !text-[11px] border-guide-200 bg-guide-50 text-guide-700">
+              Đủ
+            </span>
           );
         },
       },
       {
         title: 'Trạng thái',
         dataIndex: 'TrangThai',
-        render: (v, r) => {
-          const st = TRANG_THAI_DAT_CHO[v];
-          return (
-            <Space direction="vertical" size={0}>
-              <Tag color={st?.color}>{st?.label || v}</Tag>
-              {v === 'GiuCho' && (
-                <CountdownTimer hanGiuCho={r.HanGiuCho} />
-              )}
-            </Space>
-          );
-        },
+        width: 168,
+        render: (v, r) => (
+          <div className="flex flex-col items-start gap-1">
+            <span className={`chip !px-2 !py-0.5 !text-[11px] ${donPill(v)}`}>
+              {TRANG_THAI_DAT_CHO[v]?.label || v}
+            </span>
+            {v === 'GiuCho' && <CountdownTimer hanGiuCho={r.HanGiuCho} />}
+          </div>
+        ),
       },
       {
+        // Ghim phải: đây là cột ra tiền, không được để nó bị đẩy khỏi mép
+        // phải khi cửa sổ hẹp — cuộn ngang tìm nút là thao tác tốn thời gian
+        // nhất trên màn này.
         title: 'Thao tác',
         key: 'action',
-        width: 260,
+        width: 132,
+        fixed: 'right',
         render: (_, r) => {
-          const canDeposit = ['GiuCho', 'ChoCoc'].includes(r.TrangThai);
+          // P2: đơn khách báo đã chuyển khoản vẫn xác nhận cọc được (bỏ qua hết hạn)
+          const canDeposit = ['GiuCho', 'ChoCoc', 'ChoXacNhanCoc'].includes(r.TrangThai);
           const canFull = r.TrangThai === 'DaCoc';
-          const canCancel = !['DaHuy', 'DaThanhToan'].includes(r.TrangThai);
+          // P3: cho phép hủy cả đơn DaThanhToan; loại DangDiTour/HoanThanh/HetHan/DaHuy
+          const canCancel = ['GiuCho', 'ChoCoc', 'DaCoc', 'DaThanhToan'].includes(r.TrangThai);
+
+          const chiTiet = {
+            nhan: 'Chi tiết',
+            icon: <EyeOutlined />,
+            onClick: () => openDetail(r),
+          };
+          const khac = [];
+          if (canFull) {
+            khac.push({
+              nhan: 'Thanh toán đủ',
+              icon: <MoneyCollectOutlined />,
+              onClick: () => openFull(r),
+            });
+          }
+          if (canCancel) {
+            khac.push({
+              nhan: 'Xử lý hủy',
+              icon: <CalendarOutlined />,
+              danger: true,
+              onClick: () => openCancel(r),
+            });
+          }
+
+          // Việc ra tiền đứng thẳng trên dòng; "Chi tiết" chỉ là thao tác đọc nên
+          // lùi vào menu khi đã có việc gấp hơn. Không bỏ mất thao tác nào.
           return (
-            <Space wrap>
-              <Button size="small" icon={<EyeOutlined />} onClick={() => openDetail(r)}>
-                Chi tiết
-              </Button>
-              {canDeposit && (
-                <Button size="small" icon={<WalletOutlined />} onClick={() => openDeposit(r)}>
-                  Xác nhận cọc
-                </Button>
-              )}
-              {canFull && (
-                <Button size="small" icon={<MoneyCollectOutlined />} onClick={() => openFull(r)}>
-                  Thanh toán đủ
-                </Button>
-              )}
-              {canCancel && (
-                <Button size="small" danger icon={<CalendarOutlined />} onClick={() => openCancel(r)}>
-                  Xử lý hủy
-                </Button>
-              )}
-            </Space>
+            <HangThaoTac
+              chinh={
+                canDeposit
+                  ? {
+                      nhan: 'Xác nhận cọc',
+                      icon: <WalletOutlined />,
+                      onClick: () => openDeposit(r),
+                    }
+                  : chiTiet
+              }
+              khac={canDeposit ? [chiTiet, ...khac] : khac}
+            />
           );
         },
       },
@@ -421,38 +481,70 @@ export default function AccountantBookings() {
     [],
   );
 
+  // Bề rộng tối thiểu của bảng = tổng bề rộng các cột đã khai báo. Phải là một
+  // con số cụ thể để AntD dùng `table-layout: fixed`; ở chế độ `max-content`
+  // nó nới cột theo nội dung, nên tên tour dài sẽ đẩy cột "Trạng thái" chui
+  // xuống dưới cột "Thao tác" đã ghim bên phải. Tính từ chính mảng cột nên
+  // thêm bớt cột là con số tự đúng theo.
+  const beRongBang = columns.reduce((s, c) => s + (c.width || 0), 0);
+
   const payableColumns = [
-    { title: 'Đối tác', dataIndex: 'TenDoiTac' },
-    { title: 'Dịch vụ', dataIndex: 'DichVu' },
-    { title: 'Tổng tiền', dataIndex: 'TongTien', render: fmtVND, width: 130 },
-    { title: 'Đã trả', dataIndex: 'DaThanhToan', render: fmtVND, width: 120 },
-    { title: 'Còn nợ', dataIndex: 'con_no', width: 120, render: (v) => <b className="text-orange-500">{fmtVND(v)}</b> },
-    { title: 'Hạn thanh toán', dataIndex: 'HanThanhToan', render: fmtDate, width: 120 },
+    {
+      title: 'Đối tác',
+      dataIndex: 'TenDoiTac',
+      render: (v) => <span className="font-semibold text-ink-950">{v}</span>,
+    },
+    { title: 'Dịch vụ', dataIndex: 'DichVu', ellipsis: true },
+    {
+      title: 'Tổng tiền',
+      dataIndex: 'TongTien',
+      render: (v) => <span className="tnum text-ink-700">{fmtVND(v)}</span>,
+      width: 130,
+      align: 'right',
+    },
+    {
+      title: 'Đã trả',
+      dataIndex: 'DaThanhToan',
+      render: (v) => <span className="tnum text-ink-700">{fmtVND(v)}</span>,
+      width: 125,
+      align: 'right',
+    },
+    {
+      title: 'Còn nợ',
+      dataIndex: 'con_no',
+      width: 130,
+      align: 'right',
+      render: (v) => <span className="tnum font-semibold text-signal-700">{fmtVND(v)}</span>,
+    },
+    { title: 'Hạn thanh toán', dataIndex: 'HanThanhToan', render: fmtDate, width: 135 },
     {
       title: 'Trạng thái',
       dataIndex: 'TrangThai',
-      width: 120,
-      render: (v) => {
-        const st = TRANG_THAI_NCC[v];
-        return <Tag color={st?.color}>{st?.label || v}</Tag>;
-      },
+      width: 130,
+      render: (v) => (
+        <span className={`chip !px-2 !py-0.5 !text-[11px] ${nccPill(v)}`}>
+          {TRANG_THAI_NCC_LABEL[v] || v}
+        </span>
+      ),
     },
     {
       title: 'Thao tác',
       key: 'action',
-      width: 130,
+      width: 140,
       render: (_, r) =>
         Number(r.con_no) > 0 ? (
-          <Button
-            size="small"
-            onClick={() => {
-              payForm.resetFields();
-              setPayItem(r);
+          <HangThaoTac
+            chinh={{
+              nhan: 'Lập phiếu chi',
+              onClick: () => {
+                payForm.resetFields();
+                setPayItem(r);
+              },
             }}
-          >
-            Lập phiếu chi
-          </Button>
-        ) : null,
+          />
+        ) : (
+          <span className="text-ink-400">—</span>
+        ),
     },
   ];
 
@@ -465,13 +557,17 @@ export default function AccountantBookings() {
         </span>
       ),
       children: (
-        <Table
+        <BangDuLieu
           rowKey="MaDatCho"
           columns={columns}
-          dataSource={filteredRows}
-          pagination={{ pageSize: 8 }}
+          rows={filteredRows}
+          x={beRongBang}
           loading={loading}
-          scroll={{ x: 1100 }}
+          pageSize={10}
+          empty={{
+            title: 'Không có đơn nào khớp bộ lọc',
+            description: 'Xoá bộ lọc trạng thái hoặc từ khoá tìm kiếm để xem toàn bộ danh sách.',
+          }}
         />
       ),
     },
@@ -483,20 +579,19 @@ export default function AccountantBookings() {
         </span>
       ),
       children: (
-        <div>
+        <div className="space-y-3">
           <Alert
-            className="mb-3"
             type="info"
             showIcon
             message="Chính sách phạt (DR-04): hủy ≥ 7 ngày hoàn 100% cọc · 3–6 ngày phạt 50% cọc · dưới 3 ngày phạt 100% cọc."
           />
-          <Table
+          <BangDuLieu
             rowKey="MaDatCho"
             columns={columns}
-            dataSource={filteredRows.filter((r) => !['DaHuy', 'DaThanhToan'].includes(r.TrangThai))}
-            pagination={{ pageSize: 8 }}
+            rows={filteredRows.filter((r) => ['GiuCho', 'ChoCoc', 'DaCoc', 'DaThanhToan'].includes(r.TrangThai))}
             loading={loading}
-            scroll={{ x: 1100 }}
+            pageSize={10}
+            empty={{ title: 'Không có đơn nào có thể hủy ở thời điểm này' }}
           />
         </div>
       ),
@@ -509,26 +604,29 @@ export default function AccountantBookings() {
         </span>
       ),
       children: (
-        <div>
-          <div className="mb-3 flex justify-end">
-            <Button
-              type="primary"
-              icon={<ShopOutlined />}
+        <div className="space-y-3">
+          <div className="flex justify-end">
+            <button
+              type="button"
+              className="btn btn-ink"
               onClick={() => {
                 payableForm.resetFields();
                 setPayableOpen(true);
               }}
             >
-              Thêm khoản nợ
-            </Button>
+              <ShopOutlined /> Thêm khoản nợ
+            </button>
           </div>
-          <Table
+          <BangDuLieu
             rowKey="MaPhaiTra"
             columns={payableColumns}
-            dataSource={payables}
-            pagination={{ pageSize: 8 }}
+            rows={payables}
             loading={payableLoading}
-            scroll={{ x: 900 }}
+            pageSize={10}
+            empty={{
+              title: 'Chưa ghi khoản nợ nhà cung cấp nào',
+              description: 'Thêm khoản nợ để theo dõi hạn thanh toán và lập phiếu chi.',
+            }}
           />
         </div>
       ),
@@ -536,85 +634,91 @@ export default function AccountantBookings() {
   ];
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8">
-      <Card className="shadow-card" bordered={false}>
-        <div className="mb-2">
-          <Title level={3} className="!mb-1">
-            💰 Phân hệ Kế toán
-          </Title>
-          <Text type="secondary">
-            Xác nhận cọc ≥ 30% (DR-03), thanh toán phần còn lại và xử lý hủy
-            tour theo mốc phạt (DR-04).
-          </Text>
-        </div>
+    <div className="w-full">
+      <SectionHeader
+        marker={loading ? null : `${rows.length} đơn`}
+        title="Phân hệ Kế toán"
+        description="Xác nhận cọc ≥ 30% (DR-03), thanh toán phần còn lại và xử lý hủy tour theo mốc phạt (DR-04)."
+      />
 
-        <div className="mb-4 flex flex-wrap items-center gap-3">
-          <Select
-            allowClear
-            placeholder="Lọc trạng thái"
-            style={{ width: 180 }}
-            value={filterStatus}
-            onChange={setFilterStatus}
-            options={Object.keys(TRANG_THAI_DAT_CHO).map((k) => ({
-              value: k,
-              label: TRANG_THAI_DAT_CHO[k].label,
-            }))}
+      <div className="mt-6 space-y-4">
+        {/* Ba con số tiền là việc của kế toán; bốn số đếm trạng thái chỉ để
+            định vị nên xếp thành dải riêng bên dưới. */}
+        <ChiSoRail cot={3}>
+          <ChiSo
+            nhan="Tổng đã thu"
+            giaTri={fmtSo(tongDaThu)}
+            donVi="₫"
+            phu={`Cộng dồn tiền cọc của ${rows.length} đơn`}
           />
-          <Input
-            allowClear
-            prefix={<SearchOutlined />}
-            placeholder="Tìm khách / tour / mã đơn"
-            style={{ width: 260 }}
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
+          <ChiSo
+            nhan="Tổng công nợ"
+            giaTri={fmtSo(tongCongNo)}
+            donVi="₫"
+            phu="Đơn đã cọc nhưng chưa thanh toán đủ"
+            manh
           />
-        </div>
+          <ChiSo
+            nhan="Tổng đã hoàn"
+            giaTri={fmtSo(hoanTotal)}
+            donVi="₫"
+            phu="Từ các giao dịch hoàn tiền"
+          />
+        </ChiSoRail>
 
-        <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <Card size="small">
-            <Statistic
-              title="Tổng đơn"
-              value={rows.length}
-              valueStyle={{ color: '#4b4ee8' }}
-            />
-          </Card>
-          <Card size="small">
-            <Statistic
-              title="Chờ cọc / Giữ chỗ"
-              value={rows.filter((r) => ['GiuCho', 'ChoCoc'].includes(r.TrangThai)).length}
-              valueStyle={{ color: '#fa8c16' }}
-            />
-          </Card>
-          <Card size="small">
-            <Statistic
-              title="Đã cọc chưa thanh toán đủ"
-              value={rows.filter((r) => r.TrangThai === 'DaCoc').length}
-              valueStyle={{ color: '#13c2c2' }}
-            />
-          </Card>
-          <Card size="small">
-            <Statistic
-              title="Đã thanh toán"
-              value={rows.filter((r) => r.TrangThai === 'DaThanhToan').length}
-              valueStyle={{ color: '#52c41a' }}
-            />
-          </Card>
-        </div>
+        <ChiSoRail cot={4}>
+          <ChiSo nhan="Tổng đơn" giaTri={rows.length} />
+          <ChiSo
+            nhan="Chờ cọc / Giữ chỗ"
+            giaTri={
+              rows.filter((r) => ['GiuCho', 'ChoCoc', 'ChoXacNhanCoc'].includes(r.TrangThai)).length
+            }
+          />
+          <ChiSo
+            nhan="Đã cọc, chưa trả đủ"
+            giaTri={rows.filter((r) => r.TrangThai === 'DaCoc').length}
+          />
+          <ChiSo
+            nhan="Đã thanh toán"
+            giaTri={
+              rows.filter((r) => ['DaThanhToan', 'DangDiTour', 'HoanThanh'].includes(r.TrangThai)).length
+            }
+          />
+        </ChiSoRail>
 
-        <div className="mb-4 grid grid-cols-3 gap-3">
-          <Card size="small">
-            <Statistic title="Tổng đã thu" value={tongDaThu} formatter={fmtVND} valueStyle={{ color: '#52c41a' }} />
-          </Card>
-          <Card size="small">
-            <Statistic title="Tổng công nợ" value={tongCongNo} formatter={fmtVND} valueStyle={{ color: '#fa8c16' }} />
-          </Card>
-          <Card size="small">
-            <Statistic title="Tổng hoàn" value={hoanTotal} formatter={fmtVND} valueStyle={{ color: '#f5222d' }} />
-          </Card>
-        </div>
+        <ThanhLoc
+          right={
+            <span className="tnum text-body-s text-ink-600">
+              {filteredRows.length}/{rows.length} đơn
+            </span>
+          }
+        >
+          <OLoc nhan="Trạng thái" width={200}>
+            <Select
+              allowClear
+              placeholder="Tất cả trạng thái"
+              className="w-full"
+              value={filterStatus}
+              onChange={setFilterStatus}
+              options={Object.keys(TRANG_THAI_DAT_CHO).map((k) => ({
+                value: k,
+                label: TRANG_THAI_DAT_CHO[k].label,
+              }))}
+            />
+          </OLoc>
+          <OLoc nhan="Tìm kiếm" width={280}>
+            <Input
+              allowClear
+              prefix={<SearchOutlined />}
+              placeholder="Tên khách, tour hoặc mã đơn"
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+            />
+          </OLoc>
+        </ThanhLoc>
 
         <Tabs activeKey={tab} onChange={setTab} items={items} />
-      </Card>
+      </div>
 
       {/* ------------------------------ Modal cọc ------------------------------ */}
       <Modal
@@ -624,19 +728,57 @@ export default function AccountantBookings() {
         confirmLoading={depositSubmitting}
         okText="Xác nhận cọc"
         title={`Xác nhận cọc — đơn #${depositItem?.MaDatCho}`}
+        footer={
+          depositItem?.TrangThai === 'ChoXacNhanCoc' ? (
+            <div className="flex items-center justify-between">
+              <Button danger onClick={confirmRejectDeposit}>
+                Từ chối xác nhận
+              </Button>
+              <Space>
+                <Button onClick={() => setDepositItem(null)}>Đóng</Button>
+                <Button
+                  type="primary"
+                  loading={depositSubmitting}
+                  onClick={submitDeposit}
+                >
+                  Xác nhận cọc
+                </Button>
+              </Space>
+            </div>
+          ) : undefined
+        }
       >
         {depositItem && (
-          <div className="mb-3 rounded-xl bg-slate-50 p-3 text-sm">
+          <div className="mb-3 rounded-card bg-paper p-3 text-sm">
             <div className="flex justify-between">
               <span>Tổng tiền</span>
-              <b>{fmtVND(depositItem.TongTien)}</b>
+              <b className="tnum">{fmtVND(depositItem.TongTien)}</b>
             </div>
-            <div className="flex justify-between text-orange-500">
+            <div className="flex justify-between text-signal-700">
               <span>Cọc tối thiểu 30% (DR-03)</span>
-              <b>{fmtVND(cocToiThieuOf(depositItem))}</b>
+              <b className="tnum">{fmtVND(cocToiThieuOf(depositItem))}</b>
             </div>
           </div>
         )}
+        {depositItem?.TrangThai === 'ChoXacNhanCoc' && (
+          <Alert
+            className="mb-3"
+            type="warning"
+            showIcon
+            message="Khách đã báo đã chuyển khoản cọc — đối soát với ngân hàng trước khi xác nhận."
+          />
+        )}
+        {depositItem?.TrangThai === 'ChoXacNhanCoc' &&
+          depositItem?.HinhAnhChuyenKhoan && (
+            <div className="mb-3">
+              <div className="label-sign mb-1 text-ink-600">Ảnh bill khách tải lên</div>
+              <img
+                src={depositItem.HinhAnhChuyenKhoan}
+                alt="Bill chuyển khoản"
+                className="mt-1 max-h-48 w-full rounded-card border border-ink-200 object-contain"
+              />
+            </div>
+          )}
         <Form form={depositForm} layout="vertical">
           <Form.Item
             name="SoTien"
@@ -670,18 +812,18 @@ export default function AccountantBookings() {
         title={`Thanh toán đủ — đơn #${fullItem?.MaDatCho}`}
       >
         {fullItem && (
-          <div className="mb-3 rounded-xl bg-slate-50 p-3 text-sm">
+          <div className="mb-3 rounded-card bg-paper p-3 text-sm">
             <div className="flex justify-between">
               <span>Tổng tiền</span>
-              <b>{fmtVND(fullItem.TongTien)}</b>
+              <b className="tnum">{fmtVND(fullItem.TongTien)}</b>
             </div>
             <div className="flex justify-between">
               <span>Đã cọc</span>
-              <span>{fmtVND(fullItem.DaDatCoc)}</span>
+              <span className="tnum">{fmtVND(fullItem.DaDatCoc)}</span>
             </div>
-            <div className="flex justify-between text-indigo-600">
+            <div className="flex justify-between text-guide-700">
               <span>Còn lại</span>
-              <b>{fmtVND(conThieu(fullItem))}</b>
+              <b className="tnum">{fmtVND(conThieu(fullItem))}</b>
             </div>
           </div>
         )}
@@ -725,17 +867,17 @@ export default function AccountantBookings() {
                   key: 'days',
                   label: 'Số ngày còn lại trước khởi hành',
                   children: (
-                    <Text
-                      className={
+                    <span
+                      className={`tnum font-semibold ${
                         preview.days < 3
-                          ? 'font-semibold text-red-500'
+                          ? 'text-stop-600'
                           : preview.days < 7
-                            ? 'font-semibold text-orange-500'
-                            : 'font-semibold text-green-600'
-                      }
+                            ? 'text-signal-700'
+                            : 'text-guide-700'
+                      }`}
                     >
                       {preview.days} ngày ({fmtDate(cancelItem.ngay_khoi_hanh)})
-                    </Text>
+                    </span>
                   ),
                 },
                 {
@@ -743,20 +885,18 @@ export default function AccountantBookings() {
                   label: 'Mức phạt',
                   children: (
                     <Space>
-                      <Tag
-                        color={
+                      <span
+                        className={`chip !px-2 !py-0.5 !text-[11px] ${
                           preview.mucPhat === 0
-                            ? 'green'
+                            ? 'border-guide-200 bg-guide-50 text-guide-700'
                             : preview.mucPhat === 0.5
-                              ? 'orange'
-                              : 'red'
-                        }
+                              ? 'border-signal-200 bg-signal-50 text-signal-700'
+                              : 'border-stop-200 bg-stop-50 text-stop-700'
+                        }`}
                       >
                         {preview.label}
-                      </Tag>
-                      <Text>
-                        {(preview.mucPhat * 100).toFixed(0)}%
-                      </Text>
+                      </span>
+                      <span className="tnum">{(preview.mucPhat * 100).toFixed(0)}%</span>
                     </Space>
                   ),
                 },
@@ -764,13 +904,13 @@ export default function AccountantBookings() {
                   key: 'hoan',
                   label: 'Số tiền hoàn cho khách',
                   children: (
-                    <b className="text-indigo-600">{fmtVND(preview.soTienHoan)}</b>
+                    <b className="tnum text-guide-700">{fmtVND(preview.soTienHoan)}</b>
                   ),
                 },
                 {
                   key: 'coc',
                   label: 'Tiền cọc hiện tại',
-                  children: fmtVND(cancelItem.DaDatCoc),
+                  children: <span className="tnum">{fmtVND(cancelItem.DaDatCoc)}</span>,
                 },
               ]}
             />
@@ -794,12 +934,14 @@ export default function AccountantBookings() {
       <Drawer
         open={!!detailItem}
         onClose={() => setDetailItem(null)}
-        width={680}
+        width={720}
         title={detailItem ? `Chi tiết đơn #${detailItem.MaDatCho}` : ''}
       >
         {detailLoading || !detailData ? (
-          <div className="flex justify-center py-16">
-            <Spin size="large" />
+          <div className="space-y-3">
+            <div className="skeleton h-44 rounded-card" />
+            <div className="skeleton h-28 rounded-card" />
+            <div className="skeleton h-28 rounded-card" />
           </div>
         ) : (
           <>
@@ -807,7 +949,7 @@ export default function AccountantBookings() {
               bordered
               size="small"
               column={1}
-              className="mb-3"
+              className="mb-4"
               items={[
                 { key: 'kh', label: 'Khách hàng', children: detailItem.ten_khach_hang },
                 { key: 'tour', label: 'Tour', children: detailItem.ten_tour },
@@ -823,34 +965,39 @@ export default function AccountantBookings() {
               ]}
             />
 
-            <Title level={5}>Hành khách</Title>
-            <Table
-              rowKey={(_, i) => i}
-              dataSource={detailData.ds_hanh_khach || []}
-              pagination={false}
-              size="small"
-              className="mb-3"
-              columns={[
-                { title: 'Họ tên', dataIndex: 'HoTen' },
-                { title: 'SĐT', dataIndex: 'SoDienThoai', render: (v) => v || '—' },
-                { title: 'Ghi chú', dataIndex: 'GhiChu', render: (v) => v || '—' },
-              ]}
-            />
+            <h3 className="mb-2 font-display text-[15px] font-bold text-ink-950">Hành khách</h3>
+            <div className="mb-4">
+              <BangDuLieu
+                rowKey={(_, i) => i}
+                rows={detailData.ds_hanh_khach || []}
+                pagination={false}
+                empty={{ title: 'Chưa khai hành khách' }}
+                columns={[
+                  { title: 'Họ tên', dataIndex: 'HoTen' },
+                  { title: 'SĐT', dataIndex: 'SoDienThoai', render: (v) => v || '—' },
+                  { title: 'Ghi chú', dataIndex: 'GhiChu', render: (v) => v || '—' },
+                ]}
+              />
+            </div>
 
-            <Title level={5}>Lịch sử giao dịch</Title>
-            <Table
+            <h3 className="mb-2 font-display text-[15px] font-bold text-ink-950">Lịch sử giao dịch</h3>
+            <BangDuLieu
               rowKey="key"
-              dataSource={detailTxns}
+              rows={detailTxns}
               pagination={false}
-              size="small"
-              locale={{ emptyText: 'Chưa có giao dịch.' }}
+              empty={{ title: 'Chưa có giao dịch' }}
               columns={[
                 {
                   title: 'Loại',
                   dataIndex: 'LoaiGiaoDich',
                   render: (v) => ({ Coc: 'Cọc', ThanhToan: 'Thanh toán', HoanTien: 'Hoàn tiền' }[v] || v),
                 },
-                { title: 'Số tiền', dataIndex: 'SoTien', render: fmtVND },
+                {
+                  title: 'Số tiền',
+                  dataIndex: 'SoTien',
+                  align: 'right',
+                  render: (v) => <span className="tnum">{fmtVND(v)}</span>,
+                },
                 { title: 'Phương thức', dataIndex: 'PhuongThuc' },
                 { title: 'Thời gian', dataIndex: 'NgayGiaoDich', render: fmtDateTime },
               ]}
@@ -896,10 +1043,10 @@ export default function AccountantBookings() {
         title={`Lập phiếu chi — ${payItem?.TenDoiTac}`}
       >
         {payItem && (
-          <div className="mb-3 rounded-xl bg-slate-50 p-3 text-sm">
+          <div className="mb-3 rounded-card bg-paper p-3 text-sm">
             <div className="flex justify-between"><span>Đối tác</span><b>{payItem.TenDoiTac}</b></div>
             <div className="flex justify-between"><span>Dịch vụ</span><span>{payItem.DichVu}</span></div>
-            <div className="flex justify-between text-orange-500"><span>Còn nợ</span><b>{fmtVND(payItem.con_no)}</b></div>
+            <div className="flex justify-between text-signal-700"><span>Còn nợ</span><b className="tnum">{fmtVND(payItem.con_no)}</b></div>
           </div>
         )}
         <Form form={payForm} layout="vertical">

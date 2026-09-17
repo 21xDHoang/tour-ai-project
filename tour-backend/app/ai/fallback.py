@@ -38,9 +38,10 @@ def with_fallback(fallback_spec):
         @wraps(func)
         def wrapper(*args, **kwargs):
             last_exc = None
-            # Thử tối đa 2 lần khi AI trả JSON sai schema (lỗi validate); lỗi kết
+            # Thử tối đa 3 lần khi AI trả JSON sai schema (lỗi validate) — mô
+            # hình tạo sinh đôi khi trả sai lần đầu nhưng đúng lần sau; lỗi kết
             # nối (AIUnavailableError) thì không thử lại mà fallback ngay.
-            for attempt in (1, 2):
+            for attempt in range(1, 4):
                 try:
                     result = func(*args, **kwargs)
                     # Gắn nhãn nguồn AI đúng provider (DeepSeek/Gemini) khi thành công

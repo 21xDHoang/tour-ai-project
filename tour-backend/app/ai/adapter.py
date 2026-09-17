@@ -134,7 +134,11 @@ class AIServiceAdapter:
         full_prompt = (
             f"{prompt}\n\n"
             "Chỉ trả về DUY NHẤT một đối tượng JSON (không thêm văn bản ngoài "
-            f"JSON) khớp đúng cấu trúc sau:\n{schema_str}"
+            f"JSON) khớp đúng cấu trúc sau:\n{schema_str}\n"
+            "Mỗi trường phải chứa GIÁ TRỊ trả lời thật (mã số/tên thật từ dữ "
+            "liệu bên trên, nội dung tiếng Việt ngắn gọn). TUYỆT ĐỐI không đưa "
+            "định nghĩa trường, khóa 'description'/'properties' hay nội dung "
+            "của lược đồ vào làm giá trị trả về."
         )
         try:
             resp = httpx.post(
@@ -147,6 +151,7 @@ class AIServiceAdapter:
                     "model": self.model_name,
                     "messages": [{"role": "user", "content": full_prompt}],
                     "response_format": {"type": "json_object"},
+                    "max_tokens": 2048,
                     "temperature": temperature,
                 },
                 timeout=timeout or settings.GEMINI_TIMEOUT,

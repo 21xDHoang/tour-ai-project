@@ -42,6 +42,19 @@ export const authApi = {
   me: () => http.get('/auth/me').then((r) => r.data),
 };
 
+// ---------------------------------------------------------------- Upload (Cloudflare R2)
+export const uploadApi = {
+  uploadImage: (file, folder = 'tours') => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return http
+      .post(`/upload/image?folder=${encodeURIComponent(folder)}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      .then((r) => r.data);
+  },
+};
+
 // ---------------------------------------------------------------- Tours
 export const tourApi = {
   list: (params) => http.get('/tours', { params }).then((r) => r.data),
@@ -50,10 +63,13 @@ export const tourApi = {
     http.get('/tours/destinations/all').then((r) => r.data),
   create: (data) => http.post('/tours', data).then((r) => r.data),
   update: (id, data) => http.patch(`/tours/${id}`, data).then((r) => r.data),
+  delete: (id) => http.delete(`/tours/${id}`).then((r) => r.data),
   createDestination: (data) =>
     http.post('/tours/destinations', data).then((r) => r.data),
   updateDestination: (id, data) =>
     http.patch(`/tours/destinations/${id}`, data).then((r) => r.data),
+  deleteDestination: (id) =>
+    http.delete(`/tours/destinations/${id}`).then((r) => r.data),
 };
 
 // ---------------------------------------------------------------- Bookings
@@ -64,6 +80,12 @@ export const bookingApi = {
   listAll: () => http.get('/bookings').then((r) => r.data),
   scanExpired: () =>
     http.post('/bookings/scan-expired').then((r) => r.data),
+  // P2: khách/tư vấn báo "đã chuyển khoản cọc" -> ChoXacNhanCoc (tạm dừng 24h)
+  xacNhanChuyenKhoan: (ma, data) =>
+    http.post(`/bookings/${ma}/xac-nhan-da-chuyen-khoan`, data).then((r) => r.data),
+  // P2: kế toán "từ chối" xác nhận cọc -> quay lại GiuCho, nối lại đếm ngược
+  huyXacNhanCoc: (ma) =>
+    http.post(`/bookings/${ma}/huy-xac-nhan-coc`).then((r) => r.data),
 };
 
 // ---------------------------------------------------------------- Customers
@@ -75,6 +97,8 @@ export const customerApi = {
 
 // ---------------------------------------------------------------- Payments
 export const paymentApi = {
+  // Tài khoản nhận cọc (PUBLIC) - dựng khối "Thanh toán cọc" cho khách.
+  bankInfo: () => http.get('/payments/bank-info').then((r) => r.data),
   deposit: (data) => http.post('/payments/deposit', data).then((r) => r.data),
   fullPayment: (data) =>
     http.post('/payments/full-payment', data).then((r) => r.data),
@@ -207,3 +231,4 @@ export const camNangApi = {
 };
 
 export default http;
+

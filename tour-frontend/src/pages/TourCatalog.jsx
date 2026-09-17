@@ -1,18 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Col, Empty, Input, Row, Select, Spin, Typography } from 'antd';
-import { CompassOutlined, SearchOutlined } from '@ant-design/icons';
+import { Col, Input, Row, Select } from 'antd';
+import { ClearOutlined, SearchOutlined } from '@ant-design/icons';
 import { tourApi } from '../api/http';
-import TourCard from '../components/TourCard';
-import { LOAI_TOUR } from '../utils/format';
-
-const { Title, Text } = Typography;
+import TourCard, { TourCardSkeleton } from '../components/TourCard';
+import SignBar from '../components/ui/SignBar';
+import EmptyState from '../components/ui/EmptyState';
+import { khuVucLabel, LOAI_TOUR } from '../utils/format';
+import { signOf } from '../utils/signs';
 
 const GIA_OPTIONS = [
-  { value: 2000000, label: 'Dưới 2 triệu' },
-  { value: 3000000, label: 'Dưới 3 triệu' },
-  { value: 5000000, label: 'Dưới 5 triệu' },
-  { value: 10000000, label: 'Dưới 10 triệu' },
+  { value: 2000000, label: 'Dưới 2.000.000đ' },
+  { value: 3000000, label: 'Dưới 3.000.000đ' },
+  { value: 5000000, label: 'Dưới 5.000.000đ' },
+  { value: 10000000, label: 'Dưới 10.000.000đ' },
 ];
 
 const SO_NGAY_OPTIONS = [1, 2, 3, 4, 5, 6, 7].map((n) => ({
@@ -20,13 +21,12 @@ const SO_NGAY_OPTIONS = [1, 2, 3, 4, 5, 6, 7].map((n) => ({
   label: `${n} ngày`,
 }));
 
-/** Danh mục tour — lọc theo loại hình + tìm kiếm, hiển thị toàn bộ tour. */
 export default function TourCatalog() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [tours, setTours] = useState([]);
   const [destinations, setDestinations] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [tuKhoa, setTuKhoa] = useState('');
+  const [tuKhoa, setTuKhoa] = useState(searchParams.get('tu_khoa') || '');
   const [khuVuc, setKhuVuc] = useState(undefined);
   const [giaToiDa, setGiaToiDa] = useState(undefined);
   const [soNgay, setSoNgay] = useState(undefined);
@@ -60,115 +60,183 @@ export default function TourCatalog() {
 
   const setLoai = (v) => {
     setLoaiTour(v);
-    setSearchParams(v ? { loai: v } : {});
+    const newParams = new URLSearchParams(searchParams);
+    if (v) {
+      newParams.set('loai', v);
+    } else {
+      newParams.delete('loai');
+    }
+    setSearchParams(newParams);
+  };
+
+  const handleResetFilters = () => {
+    setTuKhoa('');
+    setKhuVuc(undefined);
+    setGiaToiDa(undefined);
+    setSoNgay(undefined);
+    setLoai(undefined);
+    setSearchParams({});
   };
 
   const khuVucOptions = useMemo(() => {
     const seen = new Set();
     return destinations
       .filter((d) => {
-        if (seen.has(d.KhuVuc)) return false;
+        if (!d.KhuVuc || seen.has(d.KhuVuc)) return false;
         seen.add(d.KhuVuc);
         return true;
       })
-      .map((d) => ({ value: d.KhuVuc, label: d.KhuVuc }));
+      .map((d) => ({
+        value: d.KhuVuc,
+        label: `Khu vực: ${khuVucLabel(d.KhuVuc)}`,
+      }));
   }, [destinations]);
 
-  const chipCls = (active) =>
-    `rounded-full border px-4 py-1.5 text-sm transition ${
-      active
-        ? 'border-indigo-500 bg-indigo-600 text-white'
-        : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-400 hover:text-indigo-600'
-    }`;
+  const hasFilters = tuKhoa || khuVuc || giaToiDa || soNgay || loaiTour;
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6">
-      <div className="mb-4">
-        <Title level={2} className="!mb-1">
-          <CompassOutlined className="mr-1 text-indigo-600" /> Danh mục tour
-        </Title>
-        <Text type="secondary">
-          Lọc tour theo loại hình, khu vực, ngân sách và số ngày phù hợp.
-        </Text>
-      </div>
+    <div className="space-y-8 pb-16">
+      {/* Đầu trang — nền giấy, mở bằng một thanh biển báo xanh chỉ hướng.
+          Bản cũ là một dải gradient xanh đen, thứ ai cũng dùng cho mọi ngành. */}
+      <section className="border-b border-ink-200 bg-paper pb-8 pt-6">
+        <div className="shell">
+          <SignBar
+            tone="guide"
+            mark="DANH MỤC"
+            place="Toàn quốc · mọi cung đường"
+            meta={`${tours.length} TOUR`}
+          />
 
-      {/* Loại hình du lịch */}
-      <div className="flex flex-wrap gap-2">
-        <button type="button" className={chipCls(!loaiTour)} onClick={() => setLoai(undefined)}>
-          Tất cả
-        </button>
-        {Object.entries(LOAI_TOUR).map(([value, label]) => (
+          <h1 className="mt-5 font-display text-display-m font-extrabold text-ink-950">
+            Khám phá toàn bộ tour
+          </h1>
+          <p className="mt-2 max-w-prose text-body-s text-ink-600">
+            Lọc theo sở thích, khu vực và ngân sách. Giữ chỗ 24 giờ miễn phí, nhận
+            tư vấn lịch trình tức thì.
+          </p>
+        </div>
+      </section>
+
+      <div className="shell space-y-6">
+        {/* Lọc theo loại hành trình. `aria-pressed` vừa là trạng thái cho trình
+            đọc màn hình, vừa là móc để CSS tô nền mực cho nút đang chọn. */}
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            key={value}
-            className={chipCls(loaiTour === value)}
-            onClick={() => setLoai(value)}
+            className="chip-filter"
+            aria-pressed={!loaiTour}
+            onClick={() => setLoai(undefined)}
           >
-            {label}
+            Tất cả tour
           </button>
-        ))}
-      </div>
-
-      {/* Bộ lọc tìm kiếm */}
-      <div className="mt-4 grid grid-cols-1 gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-4">
-        <Input
-          allowClear
-          size="large"
-          prefix={<SearchOutlined />}
-          placeholder="Từ khóa (vd: Ha Long, Đà Lạt...)"
-          value={tuKhoa}
-          onChange={(e) => setTuKhoa(e.target.value)}
-        />
-        <Select
-          allowClear
-          size="large"
-          placeholder="Khu vực / Điểm đến"
-          value={khuVuc}
-          onChange={setKhuVuc}
-          options={khuVucOptions}
-        />
-        <Select
-          allowClear
-          size="large"
-          placeholder="Mức giá tối đa"
-          value={giaToiDa}
-          onChange={setGiaToiDa}
-          options={GIA_OPTIONS}
-        />
-        <Select
-          allowClear
-          size="large"
-          placeholder="Số ngày"
-          value={soNgay}
-          onChange={setSoNgay}
-          options={SO_NGAY_OPTIONS}
-        />
-      </div>
-
-      {/* Danh sách tour */}
-      <div className="mt-6">
-        <div className="mb-4 flex items-center justify-between">
-          <Title level={3} className="!mb-0">
-            Tour du lịch
-          </Title>
-          <Text type="secondary">{tours.length} tour</Text>
+          {Object.entries(LOAI_TOUR).map(([value, label]) => (
+            <button
+              type="button"
+              key={value}
+              className="chip-filter"
+              aria-pressed={loaiTour === value}
+              onClick={() => setLoai(value)}
+            >
+              <span
+                className={`h-2.5 w-2.5 shrink-0 rounded-full ${signOf(value).dotCls}`}
+                aria-hidden="true"
+              />
+              {label}
+            </button>
+          ))}
         </div>
 
-        {loading ? (
-          <div className="flex justify-center py-20">
-            <Spin size="large" />
+        {/* Filter Bar */}
+        <div className="panel p-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <Input
+              allowClear
+              size="large"
+              prefix={<SearchOutlined className="text-ink-400" />}
+              placeholder="Từ khóa (Hạ Long, Đà Nẵng...)"
+              value={tuKhoa}
+              onChange={(e) => setTuKhoa(e.target.value)}
+              className="!rounded-field"
+            />
+            <Select
+              allowClear
+              size="large"
+              placeholder="Khu vực điểm đến"
+              value={khuVuc}
+              onChange={setKhuVuc}
+              options={khuVucOptions}
+              className="w-full !rounded-field"
+            />
+            <Select
+              allowClear
+              size="large"
+              placeholder="Mức giá tối đa"
+              value={giaToiDa}
+              onChange={setGiaToiDa}
+              options={GIA_OPTIONS}
+              className="w-full !rounded-field"
+            />
+            <Select
+              allowClear
+              size="large"
+              placeholder="Số ngày tour"
+              value={soNgay}
+              onChange={setSoNgay}
+              options={SO_NGAY_OPTIONS}
+              className="w-full !rounded-field"
+            />
           </div>
-        ) : tours.length === 0 ? (
-          <Empty description="Không tìm thấy tour phù hợp" className="py-16" />
-        ) : (
-          <Row gutter={[16, 16]}>
-            {tours.map((t) => (
-              <Col key={t.MaTour} xs={24} sm={12} lg={8} xl={6}>
-                <TourCard tour={t} />
-              </Col>
-            ))}
-          </Row>
-        )}
+
+          {hasFilters && (
+            <div className="mt-3 flex items-center justify-between border-t border-ink-200 pt-3 text-xs">
+              <span className="text-ink-500">
+                Đang lọc kết quả theo tiêu chí đã chọn
+              </span>
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                className="flex items-center gap-1 font-semibold text-stop-500 hover:text-stop-600"
+              >
+                <ClearOutlined /> Xóa bộ lọc
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Danh sách tour */}
+        <div>
+          <h3 className="mb-4 font-display text-lg font-bold text-ink-950">
+            {tours.length} tour phù hợp
+          </h3>
+
+          {loading ? (
+            <Row gutter={[24, 24]}>
+              {Array.from({ length: 8 }).map((_, i) => (
+                <Col key={i} xs={24} sm={12} lg={8} xl={6}>
+                  <TourCardSkeleton />
+                </Col>
+              ))}
+            </Row>
+          ) : tours.length === 0 ? (
+            <EmptyState
+              title="Không tìm thấy tour phù hợp"
+              description="Thử đổi từ khóa tìm kiếm, hoặc xóa bộ lọc để xem lại toàn bộ danh sách."
+              action={
+                <button type="button" onClick={handleResetFilters} className="btn btn-guide">
+                  Xem tất cả tour
+                </button>
+              }
+            />
+          ) : (
+            <Row gutter={[24, 24]}>
+              {tours.map((t) => (
+                <Col key={t.MaTour} xs={24} sm={12} lg={8} xl={6}>
+                  <TourCard tour={t} />
+                </Col>
+              ))}
+            </Row>
+          )}
+        </div>
       </div>
     </div>
   );

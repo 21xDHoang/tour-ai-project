@@ -6,8 +6,10 @@ app/main.py - Cổng khởi chạy ứng dụng FastAPI (BƯỚC 4).
 - Đăng ký toàn bộ router RESTful với prefix chung /api/v1.
 - Tài liệu tương tác (Swagger): http://localhost:8000/docs
 """
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.routers import (
     admin_ops,
@@ -27,6 +29,7 @@ from app.routers import (
     reviews,
     settlements,
     tours,
+    upload,
     vouchers,
 )
 
@@ -41,8 +44,11 @@ app = FastAPI(
     version="1.0.0",
 )
 
+# Tạo thư mục uploads cục bộ nếu chưa có
+os.makedirs("uploads", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
 # CORS: cho phép mọi nguồn trong giai đoạn phát triển
-# (frontend React dev server thường chạy tại http://localhost:3000)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -54,6 +60,7 @@ app.add_middleware(
 API_PREFIX = "/api/v1"
 
 app.include_router(auth.router, prefix=API_PREFIX)
+app.include_router(upload.router, prefix=API_PREFIX)
 app.include_router(tours.router, prefix=API_PREFIX)
 app.include_router(bookings.router, prefix=API_PREFIX)
 app.include_router(payments.router, prefix=API_PREFIX)

@@ -1,20 +1,23 @@
 import { useEffect, useState } from 'react';
-import { Card, Col, Row, Skeleton, Timeline, Typography } from 'antd';
-import {
-  CarryOutOutlined,
-  CheckCircleOutlined,
-  CompassOutlined,
-  SafetyOutlined,
-  WalletOutlined,
-} from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
+import { Check, Luggage, ShieldCheck, Wallet } from 'lucide-react';
 import { camNangApi } from '../api/http';
+import SectionHeader from '../components/ui/SectionHeader';
 
-const { Title, Paragraph, Text } = Typography;
+/** Sáu bước của quy trình đặt tour — đây là một chuỗi thật nên đánh số được. */
+const QUY_TRINH = [
+  { buoc: 'Chọn tour & lịch khởi hành còn chỗ', noi: 'Lọc theo điểm đến, loại tour và ngân sách.' },
+  { buoc: 'Khai báo thông tin hành khách', noi: 'Họ tên từng người, số điện thoại liên hệ.' },
+  { buoc: 'Đặt chỗ — giữ 24 giờ miễn phí', noi: 'Chưa cần trả tiền ở bước này.' },
+  { buoc: 'Kế toán xác nhận cọc 30%', noi: 'Chuyển khoản rồi khai báo để đối soát.' },
+  { buoc: 'Hoàn tất thanh toán phần còn lại', noi: 'Trước ngày khởi hành 5 ngày.' },
+  { buoc: 'Lên đường và chia sẻ đánh giá', noi: 'Đánh giá hiển thị sau khi Admin duyệt.' },
+];
 
 /** Nội dung tĩnh dùng làm fallback khi backend không trả dữ liệu. */
 const MUCLUC = [
   {
-    icon: <CarryOutOutlined />,
+    Icon: Luggage,
     title: 'Chuẩn bị trước chuyến đi',
     items: [
       'Đặt tour sớm ít nhất 7 ngày để có nhiều lựa chọn lịch khởi hành.',
@@ -23,7 +26,7 @@ const MUCLUC = [
     ],
   },
   {
-    icon: <WalletOutlined />,
+    Icon: Wallet,
     title: 'Chi phí & thanh toán',
     items: [
       'Đặt tour giữ chỗ 24h miễn phí; thanh toán cọc 30% để xác nhận.',
@@ -32,7 +35,7 @@ const MUCLUC = [
     ],
   },
   {
-    icon: <SafetyOutlined />,
+    Icon: ShieldCheck,
     title: 'An toàn trong chuyến đi',
     items: [
       'Luôn nghe hướng dẫn của HDV và tuân thủ lịch trình.',
@@ -56,7 +59,10 @@ function renderNoiDung(text) {
   const flushBullets = (key) => {
     if (bullets.length) {
       nodes.push(
-        <ul key={key} className="mb-2 list-disc space-y-1 pl-5 text-slate-600">
+        <ul
+          key={key}
+          className="mb-2.5 list-disc space-y-1 pl-5 text-ink-700 marker:text-ink-400"
+        >
           {bullets.map((b, i) => (
             <li key={i}>{b}</li>
           ))}
@@ -68,7 +74,10 @@ function renderNoiDung(text) {
   const flushSteps = (key) => {
     if (steps.length) {
       nodes.push(
-        <ol key={key} className="mb-2 list-decimal space-y-1 pl-5 text-slate-600">
+        <ol
+          key={key}
+          className="mb-2.5 list-decimal space-y-1 pl-5 text-ink-700 marker:font-semibold marker:text-ink-500"
+        >
           {steps.map((s, i) => (
             <li key={i}>{s.replace(/^\d+\.\s*/, '')}</li>
           ))}
@@ -89,9 +98,9 @@ function renderNoiDung(text) {
       flushBullets(`b${idx}`);
       flushSteps(`s${idx}`);
       nodes.push(
-        <Paragraph key={`p${idx}`} className="!mb-2 text-slate-600">
+        <p key={`p${idx}`} className="mb-2.5 text-ink-700">
           {line}
-        </Paragraph>,
+        </p>,
       );
     }
   });
@@ -102,6 +111,7 @@ function renderNoiDung(text) {
 
 /** Cẩm nang du lịch — hiển thị bài viết từ CMS, fallback về nội dung tĩnh. */
 export default function CamNang() {
+  const navigate = useNavigate();
   const [articles, setArticles] = useState(null); // null = dùng fallback
   const [loading, setLoading] = useState(true);
 
@@ -120,51 +130,55 @@ export default function CamNang() {
   }, []);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
-      <div className="mb-6 text-center">
-        <Title level={2} className="!mb-1">
-          <CompassOutlined className="mr-1 text-indigo-600" /> Cẩm nang du lịch
-        </Title>
-        <Text type="secondary">
-          Kinh nghiệm hữu ích cho chuyến đi trọn vẹn cùng TourAI.
-        </Text>
+    <div className="shell space-y-8 pb-28 pt-8">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="font-display text-display-m text-ink-950">
+            Cẩm nang du lịch
+          </h1>
+          <p className="mt-1.5 max-w-prose text-body-s text-ink-600">
+            Những việc nên làm trước, trong và sau chuyến đi — gom lại thành một
+            chỗ để bạn không phải nhớ.
+          </p>
+        </div>
+        <button type="button" onClick={() => navigate('/tours')} className="btn btn-ink">
+          Xem danh sách tour
+        </button>
       </div>
 
       {loading ? (
-        <Row gutter={[16, 16]}>
-          {[1, 2, 3].map((i) => (
-            <Col xs={24} md={8} key={i}>
-              <Card bordered={false} className="shadow-card">
-                <Skeleton active paragraph={{ rows: 4 }} />
-              </Card>
-            </Col>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="panel space-y-3 p-5">
+              <div className="skeleton h-5 w-1/2" />
+              <div className="skeleton h-4 w-full" />
+              <div className="skeleton h-4 w-4/5" />
+            </div>
           ))}
-        </Row>
+        </div>
       ) : articles ? (
-        <Row gutter={[16, 16]}>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {articles.map((a) => (
-            <Col xs={24} md={12} key={a.MaBaiViet}>
-              <Card className="h-full shadow-card" bordered={false}>
-                {a.HinhAnhURL && (
-                  <img
-                    src={a.HinhAnhURL}
-                    alt={a.TieuDe}
-                    className="mb-3 h-44 w-full rounded-lg object-cover"
-                  />
-                )}
-                <Title level={4} className="!mb-1">
-                  {a.TieuDe}
-                </Title>
-                {a.MoTaNgan && (
-                  <Paragraph type="secondary" className="!mb-3">
-                    {a.MoTaNgan}
-                  </Paragraph>
-                )}
-                <div className="text-sm">{renderNoiDung(a.NoiDung)}</div>
-              </Card>
-            </Col>
+            <article key={a.MaBaiViet} className="panel overflow-hidden">
+              {a.HinhAnhURL ? (
+                <img
+                  src={a.HinhAnhURL}
+                  alt={a.TieuDe}
+                  className="h-44 w-full object-cover"
+                />
+              ) : null}
+              <div className="p-5">
+                <h2 className="font-display text-title text-ink-950">{a.TieuDe}</h2>
+                {a.MoTaNgan ? (
+                  <p className="mt-1.5 text-body-s text-ink-600">{a.MoTaNgan}</p>
+                ) : null}
+                {/* Bài viết để cỡ chữ nền (15px) chứ không phải cỡ nhãn: đây là
+                    chỗ duy nhất trên site khách phải đọc liền mạch nhiều dòng. */}
+                <div className="mt-3">{renderNoiDung(a.NoiDung)}</div>
+              </div>
+            </article>
           ))}
-        </Row>
+        </div>
       ) : (
         <FallbackContent />
       )}
@@ -172,38 +186,59 @@ export default function CamNang() {
   );
 }
 
-/** Fallback tĩnh giữ nguyên giao diện cũ khi chưa có dữ liệu CMS. */
+/** Fallback tĩnh khi CMS chưa có bài nào. */
 function FallbackContent() {
   return (
     <>
-      <Row gutter={[16, 16]}>
-        {MUCLUC.map((m) => (
-          <Col xs={24} md={8} key={m.title}>
-            <Card className="h-full shadow-card" bordered={false}>
-              <Title level={4} className="!mb-3">
-                <span className="mr-2 text-indigo-600">{m.icon}</span>
-                {m.title}
-              </Title>
-              <Timeline
-                items={m.items.map((it) => ({
-                  dot: <CheckCircleOutlined className="text-green-500" />,
-                  children: <Paragraph className="!mb-0 text-slate-600">{it}</Paragraph>,
-                }))}
-              />
-            </Card>
-          </Col>
-        ))}
-      </Row>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        {MUCLUC.map(({ Icon, title, items }) => (
+          <section key={title} className="panel p-5">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sign bg-ink-950 text-white">
+                <Icon className="h-4 w-4" aria-hidden="true" />
+              </span>
+              <h2 className="font-display text-title text-ink-950">{title}</h2>
+            </div>
 
-      <Card className="mt-6 shadow-card" bordered={false}>
-        <Title level={4}>Quy trình đặt tour chuẩn</Title>
-        <Paragraph className="text-slate-600">
-          <b>1.</b> Chọn tour & lịch khởi hành còn chỗ → <b>2.</b> Khai báo thông tin
-          hành khách → <b>3.</b> Đặt chỗ (giữ 24h miễn phí) → <b>4.</b> Kế toán xác
-          nhận cọc 30% → <b>5.</b> Nhận thông báo & hoàn tất thanh toán → <b>6.</b>{' '}
-          Lên đường và chia sẻ đánh giá.
-        </Paragraph>
-      </Card>
+            <ul className="mt-4 space-y-2.5">
+              {items.map((it) => (
+                <li key={it} className="flex items-start gap-2.5">
+                  <Check
+                    className="mt-0.5 h-4 w-4 shrink-0 text-guide-500"
+                    strokeWidth={3}
+                    aria-hidden="true"
+                  />
+                  <span className="text-ink-700">{it}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+      </div>
+
+      <section className="panel overflow-hidden">
+        <SectionHeader
+          className="border-b border-ink-200 p-5 sm:p-6"
+          title="Quy trình đặt tour"
+          description="Sáu bước từ lúc chọn tour tới lúc chia sẻ đánh giá. Bước 3 là bước duy nhất chưa cần trả tiền."
+        />
+
+        <ol className="divide-y divide-ink-200">
+          {QUY_TRINH.map((b, i) => (
+            <li key={b.buoc} className="flex items-start gap-3.5 px-5 py-4 sm:px-6">
+              <span className="label-sign tnum flex h-8 w-8 shrink-0 items-center justify-center rounded-sign bg-ink-950 text-white">
+                {i + 1}
+              </span>
+              <div className="min-w-0">
+                <div className="font-display text-[15px] font-bold text-ink-950">
+                  {b.buoc}
+                </div>
+                <div className="mt-0.5 text-body-s text-ink-600">{b.noi}</div>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </section>
     </>
   );
 }

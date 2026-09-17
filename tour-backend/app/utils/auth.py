@@ -53,6 +53,27 @@ def get_current_user(
     return user
 
 
+def get_optional_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+    db: Session = Depends(get_db),
+) -> NguoiDung | None:
+    """Xác thực người dùng nếu có token, hoặc trả về None nếu là khách ẩn danh."""
+    if credentials is None:
+        return None
+    try:
+        payload = decode_access_token(credentials.credentials)
+        ma_nguoi_dung = payload.get("sub")
+        if ma_nguoi_dung is None:
+            return None
+        return (
+            db.query(NguoiDung)
+            .filter(NguoiDung.MaNguoiDung == int(ma_nguoi_dung))
+            .first()
+        )
+    except Exception:
+        return None
+
+
 def require_roles(allowed_roles: list[str]):
     """Factory trả về dependency kiểm tra VaiTro người dùng (RBAC).
 

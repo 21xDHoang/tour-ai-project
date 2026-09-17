@@ -2,7 +2,9 @@
 """
 app/schemas/booking.py - DTO cho nhóm chức năng Đặt chỗ (DR-01, DR-02).
 
-Số khách của đơn được suy ra từ danh sách hành khách ChiTietDatCho.
+Hỗ trợ cả:
+  - Đặt theo MaLich có sẵn
+  - Đặt On-demand: tự chọn MaTour + NgayKhoiHanh + LoaiChuyenDi ('Ghep' | 'Rieng')
 """
 from datetime import date, datetime
 from decimal import Decimal
@@ -21,9 +23,12 @@ class ChiTietHanhKhachSchema(BaseModel):
 
 
 class DatChoCreateRequest(BaseModel):
-    """Yêu cầu tạo đơn đặt chỗ: lịch + khách hàng + danh sách hành khách."""
+    """Yêu cầu tạo đơn đặt chỗ: lịch (hoặc tự chọn ngày) + khách hàng + danh sách hành khách."""
 
-    MaLich: int
+    MaLich: int | None = None
+    MaTour: int | None = None
+    NgayKhoiHanh: date | None = None
+    LoaiChuyenDi: str = Field("Ghep", description="Ghep | Rieng")
     MaKhachHang: int
     ds_hanh_khach: list[ChiTietHanhKhachSchema] = Field(min_length=1)
 
@@ -44,7 +49,10 @@ class NguoiDatManualSchema(BaseModel):
 class DatChoManualRequest(BaseModel):
     """Yêu cầu tạo đơn đặt chỗ thủ công từ bàn đặt tour (Tư vấn viên/Admin)."""
 
-    MaLich: int
+    MaLich: int | None = None
+    MaTour: int | None = None
+    NgayKhoiHanh: date | None = None
+    LoaiChuyenDi: str = Field("Ghep", description="Ghep | Rieng")
     nguoi_dat: NguoiDatManualSchema
     ds_hanh_khach: list[ChiTietHanhKhachSchema] = Field(
         min_length=1, description="GhiChu = sở thích riêng từng hành khách"
@@ -59,6 +67,17 @@ class DatChoManualRequest(BaseModel):
     def SoKhach(self) -> int:
         """Số khách = số lượng hành khách khai báo trong đơn."""
         return len(self.ds_hanh_khach)
+
+
+class XacNhanChuyenKhoanRequest(BaseModel):
+    """Khai báo khách đã chuyển khoản cọc -> chuyển TrangThai sang ChoXacNhanCoc.
+
+    - HinhAnh: URL ảnh bill/ủy nhiệm chi (tùy chọn, upload qua /upload/image).
+    - Khi khai báo, hệ thống tạm dừng đếm ngược 24h (SoGiayConLai) để kế toán
+      có thời gian đối soát, tránh đơn bị tự hủy khi khách đã chuyển tiền.
+    """
+
+    HinhAnh: str | None = None
 
 
 class DatChoResponse(BaseModel):
@@ -76,8 +95,14 @@ class DatChoResponse(BaseModel):
     HanGiuCho: datetime
     TrangThai: str
 
+    # Khai báo "đã chuyển khoản" -> ChoXacNhanCoc (tạm dừng đếm ngược 24h)
+    SoGiayConLai: int | None = None
+    HinhAnhChuyenKhoan: str | None = None
+
     # Cảnh báo nghiệp vụ (vd: đoàn dưới MinSeats) - chỉ xuất hiện khi có
     canh_bao: str | None = None
+    LoaiChuyenDi: str | None = "Ghep"
+    ghi_chu_lich: str | None = None
 
 
 class DatChoListItem(BaseModel):
@@ -92,12 +117,17 @@ class DatChoListItem(BaseModel):
     ten_tour: str
     ten_diem_den: str | None = None
     ngay_khoi_hanh: date | None = None
+    LoaiChuyenDi: str | None = "Ghep"
+    ghi_chu_lich: str | None = None
     SoKhach: int
     TongTien: Decimal
     DaDatCoc: Decimal
     NgayDat: datetime
     HanGiuCho: datetime
     TrangThai: str
+
+    SoGiayConLai: int | None = None
+    HinhAnhChuyenKhoan: str | None = None
 
 
 class DatChoDetailResponse(DatChoResponse):

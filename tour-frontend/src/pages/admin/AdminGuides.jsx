@@ -1,21 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   Button,
-  Card,
   DatePicker,
-  Descriptions,
-  Divider,
   Drawer,
   Form,
   Input,
   InputNumber,
   Modal,
   Select,
-  Space,
-  Spin,
-  Table,
-  Tag,
-  Typography,
   message,
 } from 'antd';
 import {
@@ -23,7 +15,6 @@ import {
   EyeOutlined,
   PlusOutlined,
   RobotOutlined,
-  TeamOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { guideApi } from '../../api/http';
@@ -35,8 +26,10 @@ import {
   fmtDate,
   fmtVND,
 } from '../../utils/format';
-
-const { Title, Text } = Typography;
+import { camXucChip, hdvPill, lichPill } from '../../utils/signs';
+import BangDuLieu from '../../components/ui/BangDuLieu';
+import HangThaoTac from '../../components/ui/HangThaoTac';
+import SectionHeader from '../../components/ui/SectionHeader';
 
 const TRANG_THAI_OPTIONS = Object.keys(TRANG_THAI_HDV).map((k) => ({
   value: k,
@@ -45,7 +38,21 @@ const TRANG_THAI_OPTIONS = Object.keys(TRANG_THAI_HDV).map((k) => ({
 const TRANG_THAI_LAM_VIEC_OPTIONS = Object.entries(TRANG_THAI_LAM_VIEC_HDV).map(
   ([value, label]) => ({ value, label }),
 );
-const CAM_XUC_COLOR = { TichCuc: 'green', TrungLap: 'gold', TieuCuc: 'red' };
+
+/** Vai trò của HDV trong một đoàn — nhãn y như ô chọn ở modal Phân công HDV. */
+const VAI_TRO_TRONG_DOAN = { TruongDoan: 'Trưởng đoàn', PhuDoan: 'Phó đoàn' };
+
+/** Một dòng "nhãn — giá trị" trong hồ sơ. Không dùng Descriptions của AntD:
+ *  khung kẻ xám của nó là một hệ trình bày riêng, không đứng cạnh phần còn lại
+ *  của trang được. */
+function Dong({ nhan, children, rong }) {
+  return (
+    <div className={rong ? 'col-span-2' : ''}>
+      <dt className="label-sign text-ink-600">{nhan}</dt>
+      <dd className="text-body-s text-ink-950">{children}</dd>
+    </div>
+  );
+}
 
 /** Quản lý hướng dẫn viên (Admin - Điều hành & vận hành). */
 export default function AdminGuides() {
@@ -182,86 +189,111 @@ export default function AdminGuides() {
     {
       title: 'Họ tên',
       dataIndex: 'HoTen',
+      ellipsis: true,
       render: (v, r) => (
-        <div>
-          <div className="font-medium">{v}</div>
-          <Text type="secondary" className="text-xs">
+        <div className="min-w-0">
+          <div className="truncate font-semibold text-ink-950">{v}</div>
+          <div className="truncate text-[11.5px] text-ink-500">
             {r.ChuyenMon || 'Chưa có chuyên môn'}
-          </Text>
+          </div>
         </div>
       ),
     },
-    { title: 'Mã NV', dataIndex: 'MaNV', render: (v) => v || '—', width: 90 },
-    { title: 'SĐT', dataIndex: 'SoDienThoai', width: 120 },
+    {
+      title: 'Mã NV',
+      dataIndex: 'MaNV',
+      width: 96,
+      render: (v) => (v ? <span className="tnum">{v}</span> : <span className="text-ink-400">—</span>),
+    },
+    {
+      title: 'SĐT',
+      dataIndex: 'SoDienThoai',
+      width: 120,
+      render: (v) => <span className="tnum">{v}</span>,
+    },
     {
       title: 'Kinh nghiệm',
       dataIndex: 'SoNamKinhNghiem',
-      align: 'center',
-      width: 100,
-      render: (v) => `${v} năm`,
+      align: 'right',
+      // 120 chứ không phải 100: tiêu đề quyết định bề ngang, và "Kinh nghiệm"
+      // dài hơn "Số khách" — ở 100px nó xuống hai dòng.
+      width: 120,
+      render: (v) => <span className="tnum">{v} năm</span>,
     },
     {
       title: 'Công tác',
       dataIndex: 'TrangThai',
-      width: 100,
-      render: (v) => {
-        const st = TRANG_THAI_HDV[v];
-        return <Tag color={st?.color}>{st?.label || v}</Tag>;
-      },
+      width: 110,
+      render: (v) => (
+        <span className={`chip !px-2 !py-0.5 !text-[11px] ${hdvPill(v)}`}>
+          {TRANG_THAI_HDV[v]?.label || v}
+        </span>
+      ),
     },
     {
       title: 'Hoạt động',
       dataIndex: 'trang_thai_hoat_dong',
       width: 130,
-      render: (v) => {
-        const st = TRANG_THAI_HOAT_DONG_HDV[v];
-        return <Tag color={st?.color}>{st?.label || v}</Tag>;
-      },
+      render: (v) => (
+        <span className={`chip !px-2 !py-0.5 !text-[11px] ${hdvPill(v)}`}>
+          {TRANG_THAI_HOAT_DONG_HDV[v]?.label || v}
+        </span>
+      ),
     },
-    { title: 'Số tour', dataIndex: 'tong_so_tour', align: 'center', width: 90 },
+    {
+      title: 'Số tour',
+      dataIndex: 'tong_so_tour',
+      align: 'right',
+      width: 92,
+      render: (v) => <span className="tnum">{v ?? 0}</span>,
+    },
     {
       title: 'Thao tác',
       key: 'action',
-      width: 90,
+      width: 92,
+      fixed: 'right',
       render: (_, r) => (
-        <Button size="small" icon={<EyeOutlined />} onClick={() => openDetail(r)}>
-          Xem
-        </Button>
+        <HangThaoTac
+          chinh={{ nhan: 'Xem', icon: <EyeOutlined />, onClick: () => openDetail(r) }}
+        />
       ),
     },
   ];
 
-  return (
-    <div className="mx-auto max-w-7xl px-4 py-8">
-      <Card className="shadow-card" bordered={false}>
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <Title level={3} className="!mb-1">
-              <TeamOutlined /> Danh sách hướng dẫn viên
-            </Title>
-            <Text type="secondary">
-              Hồ sơ định danh, năng lực, lịch trình phân công, đánh giá và tài chính.
-            </Text>
-          </div>
-          <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-            Thêm HDV
-          </Button>
-        </div>
+  const rongBang = columns.reduce((s, c) => s + (c.width || 0), 0);
 
-        {loading ? (
-          <div className="flex justify-center py-16">
-            <Spin size="large" />
-          </div>
-        ) : (
-          <Table
-            rowKey="MaHDV"
-            columns={columns}
-            dataSource={rows}
-            pagination={{ pageSize: 10 }}
-            scroll={{ x: 900 }}
-          />
-        )}
-      </Card>
+  return (
+    <div className="w-full">
+      <SectionHeader
+        marker={loading ? null : `${rows.length} HDV`}
+        title="Danh sách hướng dẫn viên"
+        description="Hồ sơ định danh, năng lực, lịch trình phân công, đánh giá và tài chính."
+        action={
+          <button type="button" className="btn btn-ink" onClick={openCreate}>
+            <PlusOutlined /> Thêm HDV
+          </button>
+        }
+      />
+
+      <div className="mt-6">
+        <BangDuLieu
+          rows={rows}
+          columns={columns}
+          rowKey="MaHDV"
+          x={rongBang}
+          loading={loading}
+          pageSize={10}
+          empty={{
+            title: 'Chưa có hướng dẫn viên nào',
+            description: 'Thêm hồ sơ HDV để phân công được vào các lịch khởi hành.',
+            action: (
+              <button type="button" className="btn btn-ink" onClick={openCreate}>
+                <PlusOutlined /> Thêm HDV
+              </button>
+            ),
+          }}
+        />
+      </div>
 
       {/* Drawer chi tiết */}
       <Drawer
@@ -279,119 +311,179 @@ export default function AdminGuides() {
       >
         {detailLoading || !detail ? (
           <div className="flex justify-center py-16">
-            <Spin size="large" />
+            <div className="space-y-3">
+              <div className="skeleton h-6 w-48" />
+              <div className="skeleton h-32 rounded-card" />
+              <div className="skeleton h-32 rounded-card" />
+            </div>
           </div>
         ) : (
           <div>
-            <Space wrap className="mb-3">
-              <Tag color="blue">{TRANG_THAI_LAM_VIEC_HDV[detail.TrangThaiLamViec] || detail.TrangThaiLamViec}</Tag>
-              <Tag color={TRANG_THAI_HDV[detail.TrangThai]?.color}>
-                {TRANG_THAI_HDV[detail.TrangThai]?.label}
-              </Tag>
-              <Tag color={TRANG_THAI_HOAT_DONG_HDV[detail.trang_thai_hoat_dong || 'Ranh']?.color}>
-                {TRANG_THAI_HOAT_DONG_HDV[detail.trang_thai_hoat_dong || 'Ranh']?.label}
-              </Tag>
-            </Space>
+            {/* Loại hợp đồng là phân loại nên để chữ trơn; hai trạng thái kia
+                dùng viên màu vì chúng trả lời câu hỏi "HDV này nhận được việc
+                không". */}
+            {/* Ba viên này phải có nhãn: "Công tác" và "Hoạt động" là hai trường
+                khác nhau nhưng cùng nhận giá trị "Rảnh", để trần thì thành hai
+                viên giống hệt nhau đứng cạnh nhau. */}
+            <div className="mb-5 flex flex-wrap items-center gap-x-6 gap-y-2">
+              <div className="flex items-center gap-2">
+                <span className="label-sign text-ink-600">Hợp đồng</span>
+                <span className="chip">
+                  {TRANG_THAI_LAM_VIEC_HDV[detail.TrangThaiLamViec] || detail.TrangThaiLamViec}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="label-sign text-ink-600">Công tác</span>
+                <span className={`chip ${hdvPill(detail.TrangThai)}`}>
+                  {TRANG_THAI_HDV[detail.TrangThai]?.label}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="label-sign text-ink-600">Hoạt động</span>
+                <span className={`chip ${hdvPill(detail.trang_thai_hoat_dong || 'Ranh')}`}>
+                  {TRANG_THAI_HOAT_DONG_HDV[detail.trang_thai_hoat_dong || 'Ranh']?.label}
+                </span>
+              </div>
+            </div>
 
-            <Divider orientation="left" plain>👤 Định danh</Divider>
-            <Descriptions column={2} size="small" bordered>
-              <Descriptions.Item label="Mã NV">{detail.MaNV || '—'}</Descriptions.Item>
-              <Descriptions.Item label="CCCD">{detail.CCCD || '—'}</Descriptions.Item>
-              <Descriptions.Item label="Ngày sinh">{detail.NgaySinh ? fmtDate(detail.NgaySinh) : '—'}</Descriptions.Item>
-              <Descriptions.Item label="Hộ chiếu">{detail.HoChieu || '—'}</Descriptions.Item>
-              <Descriptions.Item label="SĐT">{detail.SoDienThoai}</Descriptions.Item>
-              <Descriptions.Item label="Email">{detail.Email || '—'}</Descriptions.Item>
-              <Descriptions.Item label="Địa chỉ" span={2}>{detail.DiaChi || '—'}</Descriptions.Item>
-            </Descriptions>
+            <h3 className="font-display text-title mb-2.5 text-ink-950">Định danh</h3>
+            <dl className="grid grid-cols-2 gap-x-6 gap-y-3">
+              <Dong nhan="Mã NV">{detail.MaNV || '—'}</Dong>
+              <Dong nhan="CCCD">{detail.CCCD || '—'}</Dong>
+              <Dong nhan="Ngày sinh">{detail.NgaySinh ? fmtDate(detail.NgaySinh) : '—'}</Dong>
+              <Dong nhan="Hộ chiếu">{detail.HoChieu || '—'}</Dong>
+              <Dong nhan="SĐT">
+                <span className="tnum">{detail.SoDienThoai}</span>
+              </Dong>
+              <Dong nhan="Email">{detail.Email || '—'}</Dong>
+              <Dong nhan="Địa chỉ" rong>{detail.DiaChi || '—'}</Dong>
+            </dl>
 
-            <Divider orientation="left" plain>🎓 Năng lực & chuyên môn</Divider>
-            <Descriptions column={1} size="small" bordered>
-              <Descriptions.Item label="Thẻ HDV">{detail.TheHDV || '—'}</Descriptions.Item>
-              <Descriptions.Item label="Chuyên môn">{detail.ChuyenMon || '—'}</Descriptions.Item>
-              <Descriptions.Item label="Số năm kinh nghiệm">{detail.SoNamKinhNghiem} năm</Descriptions.Item>
-              <Descriptions.Item label="Tuyến điểm sở trường">{detail.TuyenDiem || '—'}</Descriptions.Item>
-              <Descriptions.Item label="Kỹ năng bổ trợ">{detail.KyNang || '—'}</Descriptions.Item>
-            </Descriptions>
+            <h3 className="font-display text-title mb-2.5 mt-6 text-ink-950">Năng lực &amp; chuyên môn</h3>
+            <dl className="grid grid-cols-2 gap-x-6 gap-y-3">
+              <Dong nhan="Thẻ HDV">{detail.TheHDV || '—'}</Dong>
+              <Dong nhan="Chuyên môn">{detail.ChuyenMon || '—'}</Dong>
+              <Dong nhan="Số năm kinh nghiệm">
+                <span className="tnum">{detail.SoNamKinhNghiem} năm</span>
+              </Dong>
+              <Dong nhan="Tuyến điểm sở trường">{detail.TuyenDiem || '—'}</Dong>
+              <Dong nhan="Kỹ năng bổ trợ" rong>{detail.KyNang || '—'}</Dong>
+            </dl>
 
-            <Divider orientation="left" plain>🗓️ Lịch trình & phân công</Divider>
-            <Text type="secondary" className="mb-2 block">
-              Tổng số tour đã dẫn: <b>{detail.tong_so_tour_da_dan}</b>
-            </Text>
-            <Table
+            <h3 className="font-display text-title mb-2.5 mt-6 text-ink-950">
+              Lịch trình &amp; phân công
+            </h3>
+            <p className="mb-3 text-body-s text-ink-600">
+              Tổng số tour đã dẫn:{' '}
+              <b className="tnum font-semibold text-ink-950">{detail.tong_so_tour_da_dan}</b>
+            </p>
+            <BangDuLieu
+              rows={detail.lich_su || []}
               rowKey="MaPhanCong"
-              dataSource={detail.lich_su || []}
+              x={620}
               pagination={false}
-              size="small"
-              locale={{ emptyText: 'Chưa có phân công nào.' }}
+              empty={{ title: 'Chưa có phân công nào' }}
               columns={[
-                { title: 'Tour', dataIndex: 'ten_tour' },
-                { title: 'Khởi hành', dataIndex: 'ngay_khoi_hanh', render: fmtDate, width: 110 },
-                { title: 'Kết thúc', dataIndex: 'ngay_ket_thuc', render: fmtDate, width: 110 },
-                { title: 'Vai trò', dataIndex: 'VaiTro', width: 110 },
+                { title: 'Tour', dataIndex: 'ten_tour', ellipsis: true },
+                {
+                  title: 'Khởi hành',
+                  dataIndex: 'ngay_khoi_hanh',
+                  render: (v) => <span className="tnum whitespace-nowrap">{fmtDate(v)}</span>,
+                  width: 118,
+                },
+                {
+                  title: 'Kết thúc',
+                  dataIndex: 'ngay_ket_thuc',
+                  render: (v) => <span className="tnum whitespace-nowrap">{fmtDate(v)}</span>,
+                  width: 118,
+                },
+                {
+                  // Trước đây in thẳng mã "TruongDoan" ra bảng — cùng tên gọi
+                  // với ô chọn Vai trò trong modal Phân công, chỗ đó đã ghi
+                  // "Trưởng đoàn". Mã lạ vẫn rơi về chính nó.
+                  title: 'Vai trò',
+                  dataIndex: 'VaiTro',
+                  width: 110,
+                  render: (v) => VAI_TRO_TRONG_DOAN[v] || v,
+                },
                 {
                   title: 'Trạng thái',
                   dataIndex: 'trang_thai_lich',
-                  width: 110,
-                  render: (v) => {
-                    const st = TRANG_THAI_LICH[v];
-                    return <Tag color={st?.color}>{st?.label || v}</Tag>;
-                  },
+                  width: 120,
+                  render: (v) => (
+                    <span className={`chip !px-2 !py-0.5 !text-[11px] ${lichPill(v)}`}>
+                      {TRANG_THAI_LICH[v]?.label || v}
+                    </span>
+                  ),
                 },
               ]}
             />
 
-            <Divider orientation="left" plain>⭐ Đánh giá & hiệu suất</Divider>
-            <div className="mb-3 flex items-center justify-between">
-              <Text>
+            <h3 className="font-display text-title mb-2.5 mt-6 text-ink-950">
+              Đánh giá &amp; hiệu suất
+            </h3>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              <span className="text-body-s text-ink-600">
                 Điểm trung bình:{' '}
-                <b>{detail.diem_trung_binh != null ? `${detail.diem_trung_binh} / 5` : '—'}</b>{' '}
+                <b className="tnum font-semibold text-ink-950">
+                  {detail.diem_trung_binh != null ? `${detail.diem_trung_binh} / 5` : '—'}
+                </b>{' '}
                 · {detail.so_phan_hoi} phản hồi
-              </Text>
-              <Button
-                type="primary"
-                icon={<RobotOutlined />}
-                loading={analyzing}
-                onClick={runAnalyze}
-              >
-                Phân tích bằng AI
-              </Button>
+              </span>
+              <button type="button" className="btn btn-ink" onClick={runAnalyze} disabled={analyzing}>
+                <RobotOutlined /> {analyzing ? 'Đang phân tích…' : 'Phân tích bằng AI'}
+              </button>
             </div>
+            {analyzing && <div className="skeleton h-24 rounded-card" />}
             {analysis && (
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <div className="mb-2 flex items-center gap-2">
-                  <Tag color={CAM_XUC_COLOR[analysis.nhan_cam_xuc]}>
-                    {analysis.nhan_cam_xuc === 'TichCuc' ? 'Tích cực' : analysis.nhan_cam_xuc === 'TrungLap' ? 'Trung lập' : 'Tiêu cực'}
-                  </Tag>
-                  {analysis.nguon === 'Fallback' && <Tag color="orange">Fallback</Tag>}
+              <div className="rounded-card border border-ink-200 bg-paper p-3">
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <span className={`chip ${camXucChip(analysis.nhan_cam_xuc)}`}>
+                    {analysis.nhan_cam_xuc === 'TichCuc'
+                      ? 'Tích cực'
+                      : analysis.nhan_cam_xuc === 'TrungLap'
+                        ? 'Trung lập'
+                        : 'Tiêu cực'}
+                  </span>
+                  {/* Nhãn nguồn để trơn, không tô màu: đây là xuất xứ kết quả,
+                      không phải mức độ cần hành động — và câu giải thích ngay
+                      dưới mới là thứ nói cho người đọc biết phải hiểu thế nào. */}
+                  {analysis.nguon === 'Fallback' && (
+                    <span className="chip">
+                      Fallback — Gemini tạm không khả dụng, kết quả do hệ thống tự chấm
+                    </span>
+                  )}
                 </div>
                 {analysis.uu_diem?.length > 0 && (
                   <div className="mb-1 text-sm">
-                    <b className="text-green-600">Ưu điểm:</b>{' '}
+                    <b className="text-guide-600">Ưu điểm:</b>{' '}
                     {analysis.uu_diem.join('; ')}
                   </div>
                 )}
                 {analysis.nhuoc_diem?.length > 0 && (
                   <div className="mb-1 text-sm">
-                    <b className="text-red-600">Nhược điểm:</b>{' '}
+                    <b className="text-stop-600">Nhược điểm:</b>{' '}
                     {analysis.nhuoc_diem.join('; ')}
                   </div>
                 )}
-                <Text className="text-sm">{analysis.tong_ket}</Text>
+                <p className="text-sm text-ink-800">{analysis.tong_ket}</p>
               </div>
             )}
 
-            <Divider orientation="left" plain>💰 Tài chính</Divider>
-            <Descriptions column={1} size="small" bordered>
-              <Descriptions.Item label="Định mức thù lao / tour">
-                {detail.DinhMucThuLao ? fmtVND(detail.DinhMucThuLao) : '—'}
-              </Descriptions.Item>
-              <Descriptions.Item label="Công tác phí">
-                {detail.CongTacPhi ? fmtVND(detail.CongTacPhi) : '—'}
-              </Descriptions.Item>
-              <Descriptions.Item label="Thông tin thanh toán">
+            <h3 className="font-display text-title mb-2.5 mt-6 text-ink-950">Tài chính</h3>
+            <dl className="grid grid-cols-2 gap-x-6 gap-y-3">
+              <Dong nhan="Định mức thù lao / tour">
+                <span className="tnum">
+                  {detail.DinhMucThuLao ? fmtVND(detail.DinhMucThuLao) : '—'}
+                </span>
+              </Dong>
+              <Dong nhan="Công tác phí">
+                <span className="tnum">{detail.CongTacPhi ? fmtVND(detail.CongTacPhi) : '—'}</span>
+              </Dong>
+              <Dong nhan="Thông tin thanh toán" rong>
                 {detail.ThongTinThanhToan || '—'}
-              </Descriptions.Item>
-            </Descriptions>
+              </Dong>
+            </dl>
           </div>
         )}
       </Drawer>

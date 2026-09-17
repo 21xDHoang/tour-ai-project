@@ -1,15 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import {
-  Button,
-  Card,
-  Modal,
-  Select,
-  Spin,
-  Table,
-  Tag,
-  Typography,
-  message,
-} from 'antd';
+import { Modal, Select, message } from 'antd';
 import {
   LockOutlined,
   SafetyCertificateOutlined,
@@ -17,8 +7,10 @@ import {
 } from '@ant-design/icons';
 import { adminApi } from '../../api/http';
 import { TRANG_THAI_TAI_KHOAN, VAI_TRO_LABEL, fmtDateTime } from '../../utils/format';
-
-const { Title, Text } = Typography;
+import { batTatPill, vaiTroPill } from '../../utils/signs';
+import BangDuLieu from '../../components/ui/BangDuLieu';
+import HangThaoTac from '../../components/ui/HangThaoTac';
+import SectionHeader from '../../components/ui/SectionHeader';
 
 const VAI_TRO_OPTIONS = Object.keys(VAI_TRO_LABEL).map((v) => ({
   value: v,
@@ -72,70 +64,94 @@ export default function AdminUsers() {
   };
 
   const columns = [
-    { title: 'Họ tên', dataIndex: 'HoTen' },
-    { title: 'Email', dataIndex: 'Email' },
+    {
+      title: 'Họ tên',
+      dataIndex: 'HoTen',
+      width: 180,
+      ellipsis: true,
+      render: (v) => <span className="font-semibold text-ink-950">{v}</span>,
+    },
+    { title: 'Email', dataIndex: 'Email', width: 200, ellipsis: true },
     {
       title: 'Vai trò',
       dataIndex: 'VaiTro',
-      render: (v) => <Tag color={v === 'Admin' ? 'volcano' : v === 'Consultant' ? 'blue' : v === 'Accountant' ? 'purple' : 'default'}>{VAI_TRO_LABEL[v] || v}</Tag>,
+      width: 132,
+      render: (v) => (
+        <span className={`chip !px-2 !py-0.5 !text-[11px] ${vaiTroPill(v)}`}>
+          {VAI_TRO_LABEL[v] || v}
+        </span>
+      ),
     },
     {
       title: 'Trạng thái',
       dataIndex: 'TrangThai',
-      render: (v) => {
-        const st = TRANG_THAI_TAI_KHOAN[v];
-        return <Tag color={st?.color}>{st?.label || v}</Tag>;
-      },
+      width: 116,
+      render: (v) => (
+        <span className={`chip !px-2 !py-0.5 !text-[11px] ${batTatPill(v)}`}>
+          {TRANG_THAI_TAI_KHOAN[v]?.label || v}
+        </span>
+      ),
     },
-    { title: 'Ngày tạo', dataIndex: 'NgayTao', render: fmtDateTime, width: 140 },
+    {
+      title: 'Ngày tạo',
+      dataIndex: 'NgayTao',
+      width: 148,
+      render: (v) => <span className="tnum whitespace-nowrap">{fmtDateTime(v)}</span>,
+    },
     {
       title: 'Thao tác',
       key: 'action',
-      width: 200,
+      width: 176,
+      fixed: 'right',
       render: (_, u) => (
-        <span className="space-x-2">
-          <Button
-            size="small"
-            danger={u.TrangThai !== 'Locked'}
-            icon={u.TrangThai === 'Locked' ? <UnlockOutlined /> : <LockOutlined />}
-            onClick={() => toggleLock(u)}
-          >
-            {u.TrangThai === 'Locked' ? 'Mở khóa' : 'Khóa'}
-          </Button>
-          <Button
-            size="small"
-            icon={<SafetyCertificateOutlined />}
-            onClick={() => {
+        <HangThaoTac
+          chinh={{
+            nhan: 'Đổi vai trò',
+            icon: <SafetyCertificateOutlined />,
+            onClick: () => {
               setRoleTarget(u);
               setRoleValue(u.VaiTro);
-            }}
-          >
-            Đổi vai trò
-          </Button>
-        </span>
+            },
+          }}
+          // Khóa tài khoản là việc hiếm và nặng, nên lùi vào menu và tô đỏ —
+          // nút chính là việc quản trị làm hằng ngày.
+          khac={[
+            {
+              nhan: u.TrangThai === 'Locked' ? 'Mở khóa' : 'Khóa',
+              icon: u.TrangThai === 'Locked' ? <UnlockOutlined /> : <LockOutlined />,
+              danger: u.TrangThai !== 'Locked',
+              onClick: () => toggleLock(u),
+            },
+          ]}
+        />
       ),
     },
   ];
 
+  const rongBang = columns.reduce((s, c) => s + (c.width || 0), 0);
+
   return (
-    <div className="mx-auto max-w-7xl">
-      <div className="mb-4">
-        <Title level={3} className="!mb-1">
-          <SafetyCertificateOutlined /> Cấp phát tài khoản
-        </Title>
-        <Text type="secondary">
-          Quản lý tài khoản nhân viên: khóa/mở khóa, đổi vai trò theo quyền.
-        </Text>
+    <div className="w-full">
+      <SectionHeader
+        marker={loading ? null : `${rows.length} tài khoản`}
+        title="Cấp phát tài khoản"
+        description="Quản lý tài khoản nhân viên: khóa/mở khóa, đổi vai trò theo quyền."
+      />
+
+      <div className="mt-6">
+        <BangDuLieu
+          rows={rows}
+          columns={columns}
+          rowKey="MaNguoiDung"
+          x={rongBang}
+          loading={loading}
+          pageSize={10}
+          empty={{
+            title: 'Chưa có tài khoản nào',
+            description: 'Tài khoản nhân viên được cấp ở đây kèm vai trò tương ứng.',
+          }}
+        />
       </div>
-      <Card className="shadow-card" bordered={false}>
-        {loading ? (
-          <div className="flex justify-center py-16">
-            <Spin size="large" />
-          </div>
-        ) : (
-          <Table rowKey="MaNguoiDung" columns={columns} dataSource={rows} />
-        )}
-      </Card>
 
       <Modal
         open={!!roleTarget}

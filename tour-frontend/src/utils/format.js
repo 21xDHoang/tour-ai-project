@@ -1,5 +1,26 @@
 import dayjs from 'dayjs';
 
+/**
+ * Bỏ dấu tiếng Việt để so khớp chuỗi.
+ *
+ * Vẫn cần dù `DiemDen.TenDiemDen` đã có dấu: `Tour.TenTour` thì chưa — "Ha Long
+ * - Lan Ha 3N2D", "Da Lat - Thanh pho ngan hoa 2N1D". Màn khách dò điểm đến
+ * trong CẢ hai trường, nên so khớp thô với "Đà Lạt" vẫn ra 0.
+ *
+ * Bỏ dấu ở cả hai vế là cách duy nhất để một chuỗi có dấu khớp được một chuỗi
+ * không dấu, mà không phải sửa lại tên tour (chữ hiện thẳng cho khách).
+ *
+ * Lưu ý: `đ` (U+0111) không tách được theo NFD nên phải thay riêng.
+ */
+export function normalizeVi(str) {
+  return String(str ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase();
+}
+
 /** Định dạng số tiền kiểu VND (vd: 2.890.000 ₫). */
 export function fmtVND(value) {
   if (value === null || value === undefined || value === '') return '—';
@@ -10,6 +31,19 @@ export function fmtVND(value) {
     currency: 'VND',
     maximumFractionDigits: 0,
   }).format(n);
+}
+
+/**
+ * Định dạng số thuần, KHÔNG kèm ký hiệu tiền (vd: 2.890.000).
+ *
+ * Dùng cho dải chỉ số và biểu đồ: ở đó đơn vị "₫" đứng riêng một lần, cỡ nhỏ,
+ * bên cạnh con số. Nếu dùng `fmtVND` thì mỗi ô lặp lại ký hiệu, và một dải bốn
+ * ô thành bốn chữ "₫" tranh chỗ với chính những con số cần đọc.
+ */
+export function fmtSo(value) {
+  return new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(
+    Number(value) || 0,
+  );
 }
 
 /** Định dạng ngày DD/MM/YYYY. */
@@ -28,9 +62,12 @@ export function fmtDateTime(value) {
 export const TRANG_THAI_DAT_CHO = {
   GiuCho: { label: 'Giữ chỗ 24h', color: 'blue' },
   ChoCoc: { label: 'Chờ cọc', color: 'gold' },
+  ChoXacNhanCoc: { label: 'Chờ xác nhận cọc', color: 'gold' },
   HetHan: { label: 'Hết hạn', color: 'default' },
   DaCoc: { label: 'Đã cọc', color: 'cyan' },
   DaThanhToan: { label: 'Đã thanh toán', color: 'green' },
+  DangDiTour: { label: 'Đang đi tour', color: 'geekblue' },
+  HoanThanh: { label: 'Hoàn thành', color: 'green' },
   DaHuy: { label: 'Đã hủy', color: 'red' },
 };
 
@@ -141,6 +178,26 @@ export const LOAI_TOUR = {
   NghiDuong: 'Du lịch nghỉ dưỡng',
   VanHoaLichSu: 'Du lịch văn hóa lịch sử',
 };
+
+/** Mã khu vực (lưu trong DiemDen.KhuVuc) -> nhãn tiếng Việt có dấu. */
+export const KHU_VUC_LABEL = {
+  'Mien Bac': 'Miền Bắc',
+  'Mien Trung': 'Miền Trung',
+  'Mien Nam': 'Miền Nam',
+  'Tay Nguyen': 'Tây Nguyên',
+  'Mien Tay': 'Miền Tây',
+};
+
+/** Danh sách khu vực dùng cho các Select (value = mã, label = nhãn có dấu). */
+export const KHU_VUC_OPTIONS = Object.entries(KHU_VUC_LABEL).map(
+  ([value, label]) => ({ value, label }),
+);
+
+/** Lấy nhãn khu vực từ mã; rỗng/null -> '', mã lạ/cũ -> giữ nguyên mã. */
+export function khuVucLabel(value) {
+  if (!value) return '';
+  return KHU_VUC_LABEL[value] || value;
+}
 
 /** Trạng thái công tác của hướng dẫn viên. */
 export const TRANG_THAI_HDV = {

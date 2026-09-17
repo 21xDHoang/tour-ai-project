@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Card, Spin, Table, Tag, Typography } from 'antd';
-import { HistoryOutlined } from '@ant-design/icons';
 import { bookingApi } from '../../api/http';
 import { TRANG_THAI_DAT_CHO, fmtDateTime, fmtVND } from '../../utils/format';
-
-const { Title, Text } = Typography;
+import { donPill } from '../../utils/signs';
+import BangDuLieu from '../../components/ui/BangDuLieu';
+import SectionHeader from '../../components/ui/SectionHeader';
 
 /**
  * Nhật ký hoạt động (Admin - Cài đặt).
@@ -34,52 +33,80 @@ export default function AdminAudit() {
   );
 
   const columns = [
-    { title: 'Mã đơn', dataIndex: 'MaDatCho', width: 90 },
-    { title: 'Khách hàng', dataIndex: 'ten_khach_hang' },
-    { title: 'Tour', dataIndex: 'ten_tour', ellipsis: true },
-    { title: 'Điểm đến', dataIndex: 'ten_diem_den', render: (v) => v || '—' },
+    {
+      title: 'Mã đơn',
+      dataIndex: 'MaDatCho',
+      width: 80,
+      render: (v) => <span className="tnum font-semibold text-ink-950">#{v}</span>,
+    },
+    { title: 'Khách hàng', dataIndex: 'ten_khach_hang', width: 150, ellipsis: true },
+    { title: 'Tour', dataIndex: 'ten_tour', width: 200, ellipsis: true },
+    {
+      title: 'Điểm đến',
+      dataIndex: 'ten_diem_den',
+      width: 130,
+      ellipsis: true,
+      render: (v) => v || '—',
+    },
     {
       title: 'Người tạo',
       dataIndex: 'ten_nguoi_tao',
-      render: (v) => v || <Text type="secondary">Web</Text>,
+      width: 118,
+      ellipsis: true,
+      // Khách tự đặt trên web thì không có nhân viên nào đứng tên — chữ xám nói
+      // đúng điều đó, còn `Text type="secondary"` của AntD kéo theo cả một hệ
+      // màu riêng không thuộc bảng màu dự án.
+      render: (v) => v || <span className="text-ink-500">Web</span>,
     },
-    { title: 'Thời điểm', dataIndex: 'NgayDat', render: fmtDateTime, width: 140 },
+    {
+      title: 'Thời điểm',
+      dataIndex: 'NgayDat',
+      width: 148,
+      render: (v) => <span className="tnum whitespace-nowrap">{fmtDateTime(v)}</span>,
+    },
     {
       title: 'Trạng thái',
       dataIndex: 'TrangThai',
-      render: (v) => {
-        const st = TRANG_THAI_DAT_CHO[v];
-        return <Tag color={st?.color}>{st?.label || v}</Tag>;
-      },
+      width: 124,
+      render: (v) => (
+        <span className={`chip !px-2 !py-0.5 !text-[11px] ${donPill(v)}`}>
+          {TRANG_THAI_DAT_CHO[v]?.label || v}
+        </span>
+      ),
     },
-    { title: 'Tổng tiền', dataIndex: 'TongTien', render: fmtVND },
+    {
+      title: 'Tổng tiền',
+      dataIndex: 'TongTien',
+      width: 126,
+      align: 'right',
+      render: (v) => <span className="tnum font-semibold text-ink-950">{fmtVND(v)}</span>,
+    },
   ];
 
+  const rongBang = columns.reduce((s, c) => s + (c.width || 0), 0);
+
   return (
-    <div className="mx-auto max-w-7xl">
-      <div className="mb-4">
-        <Title level={3} className="!mb-1">
-          <HistoryOutlined /> Nhật ký hoạt động
-        </Title>
-        <Text type="secondary">
-          Ghi nhận các giao dịch đặt chỗ gần nhất theo thời gian thực.
-        </Text>
+    <div className="w-full">
+      <SectionHeader
+        marker={loading ? null : `${sorted.length} đơn`}
+        title="Nhật ký hoạt động"
+        description="Ghi nhận các giao dịch đặt chỗ gần nhất theo thời gian thực."
+      />
+
+      <div className="mt-6">
+        <BangDuLieu
+          rows={sorted}
+          columns={columns}
+          rowKey="MaDatCho"
+          x={rongBang}
+          loading={loading}
+          pageSize={10}
+          empty={{
+            title: 'Chưa có giao dịch nào',
+            description: 'Nhật ký ghi lại mọi đơn đặt chỗ ngay khi chúng được tạo.',
+          }}
+        />
       </div>
-      <Card className="shadow-card" bordered={false}>
-        {loading ? (
-          <div className="flex justify-center py-16">
-            <Spin size="large" />
-          </div>
-        ) : (
-          <Table
-            rowKey="MaDatCho"
-            columns={columns}
-            dataSource={sorted}
-            pagination={{ pageSize: 10 }}
-            scroll={{ x: 1000 }}
-          />
-        )}
-      </Card>
     </div>
   );
 }

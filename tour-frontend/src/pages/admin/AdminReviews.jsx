@@ -1,20 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import {
-  Button,
-  Card,
-  Space,
-  Spin,
-  Table,
-  Tag,
-  Typography,
-  message,
-  Popconfirm,
-} from 'antd';
-import { CheckOutlined, CloseOutlined, EyeInvisibleOutlined, HeartOutlined } from '@ant-design/icons';
+import { message } from 'antd';
+import { CheckOutlined, CloseOutlined, EyeInvisibleOutlined } from '@ant-design/icons';
 import { reviewApi } from '../../api/http';
 import { TRANG_THAI_PHAN_HOI, fmtDateTime } from '../../utils/format';
-
-const { Title, Text } = Typography;
+import { duyetPill } from '../../utils/signs';
+import BangDuLieu from '../../components/ui/BangDuLieu';
+import HangThaoTac from '../../components/ui/HangThaoTac';
+import SectionHeader from '../../components/ui/SectionHeader';
 
 /** Kiểm duyệt đánh giá của khách (Admin - CRM). */
 export default function AdminReviews() {
@@ -47,99 +39,118 @@ export default function AdminReviews() {
   };
 
   const columns = [
-    { title: 'ID', dataIndex: 'MaPhanHoi', width: 70 },
-    { title: 'Khách hàng', dataIndex: 'ten_khach_hang' },
-    { title: 'Tour', dataIndex: 'ten_tour' },
+    {
+      title: 'ID',
+      dataIndex: 'MaPhanHoi',
+      width: 66,
+      render: (v) => <span className="tnum font-semibold text-ink-950">#{v}</span>,
+    },
+    { title: 'Khách hàng', dataIndex: 'ten_khach_hang', width: 130, ellipsis: true },
+    { title: 'Tour', dataIndex: 'ten_tour', width: 170, ellipsis: true },
     {
       title: 'Sao',
       dataIndex: 'SoSao',
-      width: 90,
-      render: (v) => <span className="text-amber-500">{'★'.repeat(v)}{'☆'.repeat(5 - v)}</span>,
+      width: 96,
+      // Sao là thang điểm, không phải trạng thái — chấm sao vàng là quy ước ai
+      // cũng đọc được, nên giữ nguyên vàng biển báo thay vì đổi sang mực.
+      render: (v) => (
+        <span className="whitespace-nowrap text-signal-600" aria-label={`${v} trên 5 sao`}>
+          {'★'.repeat(v)}
+          <span className="text-ink-300">{'☆'.repeat(5 - v)}</span>
+        </span>
+      ),
     },
-    { title: 'Nội dung', dataIndex: 'NoiDung', ellipsis: true },
+    { title: 'Nội dung', dataIndex: 'NoiDung', width: 170, ellipsis: true },
     {
       title: 'Trạng thái',
       dataIndex: 'TrangThai',
-      render: (v, r) => {
-        const st = TRANG_THAI_PHAN_HOI[v];
-        return (
-          <Space direction="vertical" size={0}>
-            <Tag color={st?.color}>{st?.label || v}</Tag>
-            {!r.AnHien && <Text type="secondary" className="text-xs">Đang ẩn</Text>}
-          </Space>
-        );
-      },
+      width: 124,
+      render: (v, r) => (
+        <div className="flex flex-col items-start gap-1">
+          <span className={`chip !px-2 !py-0.5 !text-[11px] ${duyetPill(v)}`}>
+            {TRANG_THAI_PHAN_HOI[v]?.label || v}
+          </span>
+          {!r.AnHien && <span className="text-[11px] text-ink-500">Đang ẩn</span>}
+        </div>
+      ),
     },
-    { title: 'Ngày tạo', dataIndex: 'NgayTao', render: fmtDateTime, width: 140 },
+    {
+      title: 'Ngày tạo',
+      dataIndex: 'NgayTao',
+      width: 148,
+      render: (v) => <span className="tnum whitespace-nowrap">{fmtDateTime(v)}</span>,
+    },
     {
       title: 'Thao tác',
       key: 'action',
-      width: 260,
+      width: 196,
+      fixed: 'right',
       render: (_, r) => {
         const isApproved = r.TrangThai === 'DaDuyet';
         return (
-          <Space wrap>
-            {!isApproved && r.TrangThai !== 'TuChoi' && (
-              <Button
-                size="small"
-                type="primary"
-                icon={<CheckOutlined />}
-                onClick={() => update(r.MaPhanHoi, { TrangThai: 'DaDuyet', AnHien: true }, 'Đã duyệt đánh giá')}
-              >
-                Duyệt
-              </Button>
-            )}
-            {r.TrangThai !== 'TuChoi' && (
-              <Button
-                size="small"
-                danger
-                icon={<CloseOutlined />}
-                onClick={() => update(r.MaPhanHoi, { TrangThai: 'TuChoi' }, 'Đã từ chối đánh giá')}
-              >
-                Từ chối
-              </Button>
-            )}
-            <Popconfirm
-              title={r.AnHien ? 'Ẩn đánh giá này?' : 'Hiện lại đánh giá này?'}
-              onConfirm={() =>
-                update(r.MaPhanHoi, { AnHien: !r.AnHien }, r.AnHien ? 'Đã ẩn' : 'Đã hiện')
-              }
-            >
-              <Button size="small" icon={<EyeInvisibleOutlined />}>
-                {r.AnHien ? 'Ẩn' : 'Hiện'}
-              </Button>
-            </Popconfirm>
-          </Space>
+          <HangThaoTac
+            chinh={
+              !isApproved && r.TrangThai !== 'TuChoi'
+                ? {
+                    nhan: 'Duyệt',
+                    icon: <CheckOutlined />,
+                    onClick: () =>
+                      update(
+                        r.MaPhanHoi,
+                        { TrangThai: 'DaDuyet', AnHien: true },
+                        'Đã duyệt đánh giá',
+                      ),
+                  }
+                : null
+            }
+            khac={[
+              r.TrangThai !== 'TuChoi'
+                ? {
+                    nhan: 'Từ chối',
+                    icon: <CloseOutlined />,
+                    danger: true,
+                    onClick: () =>
+                      update(r.MaPhanHoi, { TrangThai: 'TuChoi' }, 'Đã từ chối đánh giá'),
+                  }
+                : null,
+              {
+                nhan: r.AnHien ? 'Ẩn' : 'Hiện',
+                icon: <EyeInvisibleOutlined />,
+                xacNhan: r.AnHien ? 'Ẩn đánh giá này?' : 'Hiện lại đánh giá này?',
+                onClick: () =>
+                  update(r.MaPhanHoi, { AnHien: !r.AnHien }, r.AnHien ? 'Đã ẩn' : 'Đã hiện'),
+              },
+            ]}
+          />
         );
       },
     },
   ];
 
+  const rongBang = columns.reduce((s, c) => s + (c.width || 0), 0);
+
   return (
-    <div className="mx-auto max-w-7xl">
-      <div className="mb-4">
-        <Title level={3} className="!mb-1">
-          <HeartOutlined /> Kiểm duyệt đánh giá
-        </Title>
-        <Text type="secondary">
-          Đánh giá khách gửi ở trạng thái Chờ duyệt; duyệt xong mới hiển thị trên web.
-        </Text>
+    <div className="w-full">
+      <SectionHeader
+        marker={loading ? null : `${rows.length} đánh giá`}
+        title="Kiểm duyệt đánh giá"
+        description="Đánh giá khách gửi ở trạng thái Chờ duyệt; duyệt xong mới hiển thị trên web."
+      />
+
+      <div className="mt-6">
+        <BangDuLieu
+          rows={rows}
+          columns={columns}
+          rowKey="MaPhanHoi"
+          x={rongBang}
+          loading={loading}
+          pageSize={10}
+          empty={{
+            title: 'Chưa có đánh giá nào',
+            description: 'Đánh giá của khách sau chuyến đi sẽ chờ duyệt ở đây.',
+          }}
+        />
       </div>
-      <Card className="shadow-card" bordered={false}>
-        {loading ? (
-          <div className="flex justify-center py-16">
-            <Spin size="large" />
-          </div>
-        ) : (
-          <Table
-            rowKey="MaPhanHoi"
-            columns={columns}
-            dataSource={rows}
-            pagination={{ pageSize: 10 }}
-            scroll={{ x: 1100 }}
-          />
-        )}
-      </Card>
     </div>
   );
 }

@@ -34,6 +34,11 @@ class DatCho(Base):
     NgayDat: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utcnow)
     HanGiuCho: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     TrangThai: Mapped[str] = mapped_column(String(20), nullable=False, default="ChoCoc")
+    # Khi khách báo "đã chuyển khoản" -> TrangThai=ChoXacNhanCoc, tạm dừng đếm
+    # ngược 24h: SoGiayConLai lưu giây còn lại để nối lại khi kế toán từ chối.
+    SoGiayConLai: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # URL ảnh chụp bill/ủy nhiệm chi khi khách khai báo đã chuyển khoản
+    HinhAnhChuyenKhoan: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     # Quan hệ
     khach_hang: Mapped["KhachHang"] = relationship(back_populates="ds_dat_cho")

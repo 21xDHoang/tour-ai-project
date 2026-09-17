@@ -1,22 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  Button,
-  Card,
-  Form,
-  Modal,
-  Select,
-  Space,
-  Spin,
-  Table,
-  Tag,
-  Typography,
-  message,
-} from 'antd';
-import { CustomerServiceOutlined, EditOutlined } from '@ant-design/icons';
+import { Form, Modal, Select, message } from 'antd';
+import { EditOutlined } from '@ant-design/icons';
 import { adminApi, leadApi } from '../../api/http';
 import { TRANG_THAI_LEAD, fmtDateTime } from '../../utils/format';
-
-const { Title, Text } = Typography;
+import { leadPill } from '../../utils/signs';
+import BangDuLieu from '../../components/ui/BangDuLieu';
+import HangThaoTac from '../../components/ui/HangThaoTac';
+import SectionHeader from '../../components/ui/SectionHeader';
+import ThanhLoc, { OLoc } from '../../components/ui/ThanhLoc';
 
 const TRANG_THAI_OPTIONS = Object.keys(TRANG_THAI_LEAD).map((k) => ({
   value: k,
@@ -87,77 +78,106 @@ export default function AdminLeads() {
   };
 
   const columns = [
-    { title: 'Khách', dataIndex: 'HoTen' },
-    { title: 'SĐT', dataIndex: 'SoDienThoai' },
-    { title: 'Email', dataIndex: 'Email', render: (v) => v || '—' },
+    {
+      title: 'Khách',
+      dataIndex: 'HoTen',
+      width: 140,
+      ellipsis: true,
+      render: (v) => <span className="font-semibold text-ink-950">{v}</span>,
+    },
+    {
+      title: 'SĐT',
+      dataIndex: 'SoDienThoai',
+      width: 108,
+      render: (v) => <span className="tnum whitespace-nowrap">{v}</span>,
+    },
+    { title: 'Email', dataIndex: 'Email', width: 140, ellipsis: true, render: (v) => v || '—' },
     {
       title: 'Quan tâm',
       dataIndex: 'TourQuanTam',
+      width: 150,
+      ellipsis: true,
       render: (v) => v || '—',
     },
-    { title: 'Nguồn', dataIndex: 'Nguon', width: 90 },
+    { title: 'Nguồn', dataIndex: 'Nguon', width: 84, ellipsis: true },
     {
       title: 'Trạng thái',
       dataIndex: 'TrangThai',
-      render: (v) => {
-        const st = TRANG_THAI_LEAD[v];
-        return <Tag color={st?.color}>{st?.label || v}</Tag>;
-      },
+      width: 118,
+      render: (v) => (
+        <span className={`chip !px-2 !py-0.5 !text-[11px] ${leadPill(v)}`}>
+          {TRANG_THAI_LEAD[v]?.label || v}
+        </span>
+      ),
     },
     {
       title: 'Phụ trách',
       dataIndex: 'ten_nguoi_phu_trach',
-      render: (v) => v || <Text type="secondary">Chưa gán</Text>,
+      width: 130,
+      ellipsis: true,
+      // Lead chưa gán cho ai là việc còn treo, không phải một giá trị rỗng —
+      // chữ xám nói đúng điều đó mà không cần tới hệ màu riêng của AntD.
+      render: (v) => v || <span className="text-ink-500">Chưa gán</span>,
     },
-    { title: 'Ngày tạo', dataIndex: 'NgayTao', render: fmtDateTime, width: 140 },
+    {
+      // 148 chứ không phải 128: "DD/MM/YYYY HH:mm" là 17 ký tự, và bảng dùng
+      // `table-layout: fixed` nên cột hẹp hơn là cắt cụt giờ — chỗ đúng là chỗ
+      // người dùng cần biết lead tới lúc mấy giờ.
+      title: 'Ngày tạo',
+      dataIndex: 'NgayTao',
+      width: 148,
+      render: (v) => <span className="tnum whitespace-nowrap">{fmtDateTime(v)}</span>,
+    },
     {
       title: 'Thao tác',
       key: 'action',
-      width: 90,
+      width: 92,
+      fixed: 'right',
       render: (_, r) => (
-        <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(r)}>
-          Sửa
-        </Button>
+        <HangThaoTac chinh={{ nhan: 'Sửa', icon: <EditOutlined />, onClick: () => openEdit(r) }} />
       ),
     },
   ];
 
+  const rongBang = columns.reduce((s, c) => s + (c.width || 0), 0);
+
   return (
-    <div className="mx-auto max-w-7xl">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <Title level={3} className="!mb-1">
-            <CustomerServiceOutlined /> Lead & yêu cầu tư vấn
-          </Title>
-          <Text type="secondary">
-            Theo dõi phễu chuyển đổi từ Web, Chatbot, Fanpage, Zalo, Hotline.
-          </Text>
-        </div>
-        <Select
-          allowClear
-          placeholder="Lọc theo trạng thái"
-          style={{ width: 180 }}
-          options={TRANG_THAI_OPTIONS}
-          value={filter}
-          onChange={setFilter}
+    <div className="w-full">
+      <SectionHeader
+        marker={loading ? null : `${data.length} lead`}
+        title="Lead & yêu cầu tư vấn"
+        description="Theo dõi phễu chuyển đổi từ Web, Chatbot, Fanpage, Zalo, Hotline."
+      />
+
+      {/* Bộ lọc nằm trên bảng chứ không nằm cạnh tiêu đề: nó thuộc về bảng, và
+          đứng riêng một dải thì không tranh chỗ với tiêu đề khi cửa sổ hẹp. */}
+      <ThanhLoc className="mt-4">
+        <OLoc nhan="Trạng thái" width={200}>
+          <Select
+            allowClear
+            placeholder="Tất cả trạng thái"
+            style={{ width: '100%' }}
+            options={TRANG_THAI_OPTIONS}
+            value={filter}
+            onChange={setFilter}
+          />
+        </OLoc>
+      </ThanhLoc>
+
+      <div className="mt-4">
+        <BangDuLieu
+          rows={data}
+          columns={columns}
+          rowKey="MaYeuCau"
+          x={rongBang}
+          loading={loading}
+          pageSize={10}
+          empty={{
+            title: 'Chưa có lead nào',
+            description: 'Yêu cầu tư vấn từ web, chatbot và hotline sẽ đổ về đây.',
+          }}
         />
       </div>
-
-      <Card className="shadow-card" bordered={false}>
-        {loading ? (
-          <div className="flex justify-center py-16">
-            <Spin size="large" />
-          </div>
-        ) : (
-          <Table
-            rowKey="MaYeuCau"
-            columns={columns}
-            dataSource={data}
-            pagination={{ pageSize: 10 }}
-            scroll={{ x: 1000 }}
-          />
-        )}
-      </Card>
 
       <Modal
         open={!!editItem}

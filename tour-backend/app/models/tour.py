@@ -28,6 +28,8 @@ class Tour(Base):
     TrangThai: Mapped[str] = mapped_column(String(20), nullable=False, default="DangBan")
     # LoaiTour: TraiNghiem / NghiDuong / VanHoaLichSu
     LoaiTour: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    # HinhAnh: URL ảnh lưu trên Cloudflare R2
+    HinhAnh: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     # Quan hệ
     diem_den: Mapped["DiemDen"] = relationship(back_populates="ds_tour")

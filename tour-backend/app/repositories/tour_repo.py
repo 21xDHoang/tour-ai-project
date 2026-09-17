@@ -33,6 +33,25 @@ class TourRepository:
         return db.query(DiemDen).order_by(DiemDen.TenDiemDen).all()
 
     @staticmethod
+    def dem_tour_theo_diem_den(db: Session) -> dict[int, int]:
+        """{MaDiemDen: so_tour} cho tất cả điểm đến (1 câu GROUP BY, không N+1).
+
+        Đếm mọi dòng Tour (gồm cả DaXoa) vì FK Tour.MaDiemDen NOT NULL vẫn
+        chặn hard-delete điểm đến dù tour đã bị xoá mềm.
+        """
+        rows = (
+            db.query(Tour.MaDiemDen, func.count(Tour.MaTour))
+            .group_by(Tour.MaDiemDen)
+            .all()
+        )
+        return {ma: n for ma, n in rows}
+
+    @staticmethod
+    def count_tour_by_diem_den(db: Session, ma_diem_den: int) -> int:
+        """Số dòng Tour tham chiếu một điểm đến (gồm cả DaXoa)."""
+        return db.query(Tour).filter(Tour.MaDiemDen == ma_diem_den).count()
+
+    @staticmethod
     def search_tours(
         db: Session,
         tu_khoa: str | None = None,
@@ -46,11 +65,14 @@ class TourRepository:
         - tu_khoa: khớp gần đúng TenTour (không phân biệt hoa thường)
         - khu_vuc: khớp chính xác DiemDen.KhuVuc
         - gia_toi_da: giá hiện hành (GiaKhuyenMai nếu có, ngược lại GiaCoBan) <= giá tối đa
-        - trang_thai: lọc theo Tour.TrangThai (mặc định chỉ tour đang bán)
+        - trang_thai: lọc theo Tour.TrangThai (mặc định chỉ tour đang bán, luôn bỏ qua DaXoa)
         - loai_tour: lọc theo LoaiTour (TraiNghiem / NghiDuong / VanHoaLichSu)
         """
         gia_hien_tai = func.coalesce(Tour.GiaKhuyenMai, Tour.GiaCoBan)
         q = db.query(Tour).join(DiemDen, Tour.MaDiemDen == DiemDen.MaDiemDen)
+
+        # Luôn loại bỏ các tour đã xóa
+        q = q.filter(Tour.TrangThai != "DaXoa")
 
         if tu_khoa:
             q = q.filter(Tour.TenTour.ilike(f"%{tu_khoa.strip()}%"))
@@ -58,7 +80,7 @@ class TourRepository:
             q = q.filter(DiemDen.KhuVuc == khu_vuc)
         if gia_toi_da is not None:
             q = q.filter(gia_hien_tai <= gia_toi_da)
-        if trang_thai:
+        if trang_thai and trang_thai != "all":
             q = q.filter(Tour.TrangThai == trang_thai)
         if loai_tour:
             q = q.filter(Tour.LoaiTour == loai_tour)
@@ -76,9 +98,13 @@ class TourRepository:
     ) -> tuple[Tour | None, DiemDen | None, list[LichKhoiHanh]]:
         """Chi tiết tour: thông tin tour + điểm đến + các lịch còn chỗ (SoChoCon > 0).
 
-        Trả về (tour, diem_den, ds_lich). Nếu không tìm thấy tour, trả về (None, None, []).
+        Trả về (tour, diem_den, ds_lich). Nếu không tìm thấy tour hoặc tour đã xóa, trả về (None, None, []).
         """
-        tour = db.query(Tour).filter(Tour.MaTour == ma_tour).first()
+        tour = (
+            db.query(Tour)
+            .filter(Tour.MaTour == ma_tour, Tour.TrangThai != "DaXoa")
+            .first()
+        )
         if tour is None:
             return None, None, []
 

@@ -6,6 +6,8 @@ app/routers/customers.py - Endpoint hỗ trợ Khách hàng (BƯỚC 5).
                                        (tự tạo nếu chưa có, khớp theo Email)
   GET /api/v1/customers/my/bookings - lịch sử đặt tour của khách hàng
 """
+from decimal import Decimal
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
@@ -16,6 +18,8 @@ from app.schemas.customer import (
     KhachHangResponse,
     KhachHangUpdate,
 )
+from app.services.booking_service import trang_thai_hien_thi
+from app.services.payment_service import TI_LE_COC_TOI_THIEU
 from app.utils.auth import get_current_user
 
 router = APIRouter(prefix="/customers", tags=["customers"])
@@ -92,7 +96,15 @@ def get_my_bookings(
             DaDatCoc=d.DaDatCoc,
             NgayDat=d.NgayDat,
             HanGiuCho=d.HanGiuCho,
-            TrangThai=d.TrangThai,
+            TrangThai=trang_thai_hien_thi(d, l),
+            SoGiayConLai=d.SoGiayConLai,
+            HinhAnhChuyenKhoan=d.HinhAnhChuyenKhoan,
+            # Cọc tối thiểu 30% (DR-03) - khách cần con số này để biết chuyển
+            # bao nhiêu. Tính cùng công thức với lúc kế toán xác nhận cọc và
+            # với webhook đối soát, nếu không ba nơi sẽ lệch nhau.
+            coc_toi_thieu=(Decimal(d.TongTien) * TI_LE_COC_TOI_THIEU).quantize(
+                Decimal("0.01")
+            ),
         )
         for d, l, t, dd in rows
     ]

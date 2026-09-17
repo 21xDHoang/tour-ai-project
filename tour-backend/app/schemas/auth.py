@@ -24,6 +24,14 @@ class RegisterRequest(BaseModel):
     HoTen: str = Field(..., min_length=2, description="Họ tên người dùng")
     Email: str = Field(..., description="Email duy nhất")
     MatKhau: str = Field(..., min_length=6, description="Mật khẩu")
+    SoDienThoai: str = Field(
+        ...,
+        min_length=8,
+        # Trần 20 ký tự không phải để làm đẹp: KhachHang.SoDienThoai là String(20),
+        # nên số dài hơn sẽ nổ ở tầng DB (500) thay vì bị chặn gọn ở đây (422).
+        max_length=20,
+        description="Số điện thoại liên hệ, dùng để tư vấn viên gọi lại",
+    )
     VaiTro: str = Field(
         "Customer", description="Vai trò: Admin / Consultant / Accountant / Customer"
     )

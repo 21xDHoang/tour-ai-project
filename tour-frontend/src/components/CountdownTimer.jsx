@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { Tag } from 'antd';
 import dayjs from 'dayjs';
 
 const pad = (n) => String(n).padStart(2, '0');
@@ -32,7 +31,11 @@ export default function CountdownTimer({ hanGiuCho, onExpire }) {
   }, [hanGiuCho, onExpire]);
 
   if (remaining <= 0) {
-    return <Tag color="red">Hết hạn giữ chỗ</Tag>;
+    return (
+      <span className="inline-flex items-center rounded-sign bg-stop-50 px-2 py-1 font-display text-[12px] font-bold text-stop-700">
+        Hết hạn giữ chỗ
+      </span>
+    );
   }
 
   const hours = Math.floor(remaining / 3600);
@@ -42,8 +45,8 @@ export default function CountdownTimer({ hanGiuCho, onExpire }) {
 
   return (
     <span
-      className={`font-mono text-lg font-bold ${
-        danger ? 'animate-pulse text-red-500' : 'text-green-600'
+      className={`tnum font-display text-lg font-extrabold ${
+        danger ? 'pulse-mark text-stop-500' : 'text-guide-500'
       }`}
       title={`Còn lại ${pad(hours)}:${pad(minutes)}:${pad(seconds)}`}
     >

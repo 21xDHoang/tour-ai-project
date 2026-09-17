@@ -1,17 +1,42 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Card, Col, Row, Statistic, Tag, Typography } from 'antd';
-import {
-  CustomerServiceOutlined,
-  RiseOutlined,
-  ShoppingCartOutlined,
-  TagsOutlined,
-} from '@ant-design/icons';
+import { Col, Row } from 'antd';
 import { bookingApi, dashboardApi, leadApi } from '../../api/http';
 import { useAuth } from '../../context/AuthContext';
 import { TRANG_THAI_LEAD, fmtDateTime, fmtVND } from '../../utils/format';
+import { donPill, leadPill } from '../../utils/signs';
+import ChiSoRail, { ChiSo, KhungChiSo } from '../../components/ui/ChiSo';
+import EmptyState from '../../components/ui/EmptyState';
+import Khoi from '../../components/ui/Khoi';
+import SectionHeader from '../../components/ui/SectionHeader';
 
-const { Title, Text } = Typography;
+/** Nút hành động trong đầu khối: chữ thường, gạch chân chạy khi trỏ vào. */
+function LienKet({ onClick, children }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="link-route font-display text-body-s font-bold text-guide-600"
+    >
+      {children}
+    </button>
+  );
+}
+
+/** Một dòng trong danh sách việc: thông tin bên trái, trạng thái bên phải. */
+function DongViec({ tieuDe, phu, trangThai, pill }) {
+  return (
+    <li className="flex items-center justify-between gap-3 px-3.5 py-2.5">
+      <div className="min-w-0">
+        <div className="truncate font-semibold text-ink-950">{tieuDe}</div>
+        <div className="truncate text-[12px] text-ink-600">{phu}</div>
+      </div>
+      <span className={`chip shrink-0 !px-2 !py-0.5 !text-[11px] ${pill}`}>
+        {trangThai}
+      </span>
+    </li>
+  );
+}
 
 /** Dashboard cá nhân của Tư vấn viên: KPI của tôi + việc đang xử lý. */
 export default function ConsultantDashboard() {
@@ -20,8 +45,10 @@ export default function ConsultantDashboard() {
   const [kpi, setKpi] = useState(null);
   const [leads, setLeads] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
       const [k, ls, os] = await Promise.all([
         dashboardApi.kpiMy(),
@@ -33,6 +60,8 @@ export default function ConsultantDashboard() {
       setOrders((os || []).filter((o) => o.NguoiTaoID === user?.MaNguoiDung));
     } catch {
       // im lặng — để UI rỗng
+    } finally {
+      setLoading(false);
     }
   }, [user?.MaNguoiDung]);
 
@@ -40,125 +69,91 @@ export default function ConsultantDashboard() {
     load();
   }, [load]);
 
-  const leadDangXuLy = leads.filter((l) => ['Moi', 'DangLienHe', 'DaBaoGia', 'DangChot'].includes(l.TrangThai));
+  const leadDangXuLy = leads.filter((l) =>
+    ['Moi', 'DangLienHe', 'DaBaoGia', 'DangChot'].includes(l.TrangThai),
+  );
   const donDangXuLy = orders.filter((o) => ['GiuCho', 'ChoCoc', 'DaCoc'].includes(o.TrangThai));
 
+  // Số việc đang mở — con số duy nhất trên trang này trả lời được câu "hôm nay
+  // tôi còn phải làm gì", nên nó đứng ở đầu mục chứ không nằm trong một ô chỉ số.
+  const soViecDangMo = leadDangXuLy.length + donDangXuLy.length;
+
   return (
-    <div className="mx-auto max-w-7xl">
-      <div className="mb-4">
-        <Title level={3} className="!mb-1">
-          👋 Chào {user?.HoTen}!
-        </Title>
-        <Text type="secondary">
-          Tổng quan công việc hôm nay: lead đang xử lý và đơn đang theo dõi.
-        </Text>
-      </div>
+    <div className="w-full">
+      <SectionHeader
+        marker={loading ? null : String(soViecDangMo)}
+        title={`Chào ${user?.HoTen || 'bạn'}`}
+        description="Lead cần xử lý và đơn đang theo dõi của bạn."
+      />
 
-      <Row gutter={[16, 16]}>
-        <Col xs={12} lg={6}>
-          <Card className="shadow-card" bordered={false}>
-            <Statistic
-              title="Lead phụ trách"
-              value={kpi?.so_lead ?? 0}
-              prefix={<CustomerServiceOutlined className="text-blue-500" />}
-            />
-          </Card>
-        </Col>
-        <Col xs={12} lg={6}>
-          <Card className="shadow-card" bordered={false}>
-            <Statistic
-              title="Lead đang chốt"
-              value={kpi?.lead_dang_chot ?? 0}
-              prefix={<RiseOutlined className="text-purple-500" />}
-            />
-          </Card>
-        </Col>
-        <Col xs={12} lg={6}>
-          <Card className="shadow-card" bordered={false}>
-            <Statistic
-              title="Đơn đã đặt"
-              value={kpi?.so_don ?? 0}
-              prefix={<ShoppingCartOutlined className="text-indigo-500" />}
-            />
-          </Card>
-        </Col>
-        <Col xs={12} lg={6}>
-          <Card className="shadow-card" bordered={false}>
-            <Statistic
-              title="Tour riêng phụ trách"
-              value={kpi?.so_tour_rieng ?? 0}
-              prefix={<TagsOutlined className="text-cyan-500" />}
-            />
-          </Card>
-        </Col>
-      </Row>
+      {loading ? (
+        <KhungChiSo cot={4} className="mt-6" />
+      ) : (
+        <ChiSoRail cot={4} className="mt-6">
+          <ChiSo nhan="Lead phụ trách" giaTri={kpi?.so_lead ?? 0} donVi="lead" />
+          <ChiSo nhan="Lead đang chốt" giaTri={kpi?.lead_dang_chot ?? 0} donVi="lead" />
+          <ChiSo nhan="Đơn đã đặt" giaTri={kpi?.so_don ?? 0} donVi="đơn" manh />
+          <ChiSo nhan="Tour riêng phụ trách" giaTri={kpi?.so_tour_rieng ?? 0} donVi="tour" />
+        </ChiSoRail>
+      )}
 
-      <Row gutter={[16, 16]} className="mt-4">
+      <Row gutter={[16, 16]} className="mt-6">
         <Col xs={24} lg={12}>
-          <Card
-            title={`Lead cần xử lý (${leadDangXuLy.length})`}
-            className="shadow-card"
-            bordered={false}
-            extra={
-              <Button type="link" onClick={() => navigate('/consultant/leads')}>
-                Mở Kanban →
-              </Button>
-            }
+          <Khoi
+            tieuDe="Lead cần xử lý"
+            dem={String(leadDangXuLy.length)}
+            hanhDong={<LienKet onClick={() => navigate('/consultant/leads')}>Mở bảng lead</LienKet>}
           >
             {leadDangXuLy.length === 0 ? (
-              <Text type="secondary">Chưa có lead nào đang xử lý.</Text>
+              <EmptyState
+                compact
+                className="panel"
+                title="Không còn lead nào đang chờ"
+                description="Lead mới sẽ hiện ở đây ngay khi được gán cho bạn."
+              />
             ) : (
-              <ul className="divide-y">
+              <ul className="divide-y divide-ink-100 overflow-hidden rounded-card border border-ink-200 bg-white">
                 {leadDangXuLy.slice(0, 5).map((l) => (
-                  <li key={l.MaYeuCau} className="flex items-center justify-between py-2">
-                    <div>
-                      <div className="font-medium">{l.HoTen}</div>
-                      <Text type="secondary" className="text-xs">
-                        {l.SoDienThoai} · {l.Nguon} · {fmtDateTime(l.NgayTao)}
-                      </Text>
-                    </div>
-                    <Tag color={TRANG_THAI_LEAD[l.TrangThai]?.color}>
-                      {TRANG_THAI_LEAD[l.TrangThai]?.label}
-                    </Tag>
-                  </li>
+                  <DongViec
+                    key={l.MaYeuCau}
+                    tieuDe={l.HoTen}
+                    phu={`${l.SoDienThoai} · ${l.Nguon} · ${fmtDateTime(l.NgayTao)}`}
+                    trangThai={TRANG_THAI_LEAD[l.TrangThai]?.label || l.TrangThai}
+                    pill={leadPill(l.TrangThai)}
+                  />
                 ))}
               </ul>
             )}
-          </Card>
+          </Khoi>
         </Col>
+
         <Col xs={24} lg={12}>
-          <Card
-            title={`Đơn đang theo dõi (${donDangXuLy.length})`}
-            className="shadow-card"
-            bordered={false}
-            extra={
-              <Button type="link" onClick={() => navigate('/consultant/orders')}>
-                Xem tất cả →
-              </Button>
-            }
+          <Khoi
+            tieuDe="Đơn đang theo dõi"
+            dem={String(donDangXuLy.length)}
+            hanhDong={<LienKet onClick={() => navigate('/consultant/orders')}>Xem tất cả</LienKet>}
           >
             {donDangXuLy.length === 0 ? (
-              <Text type="secondary">Chưa có đơn nào đang chờ xử lý.</Text>
+              <EmptyState
+                compact
+                className="panel"
+                title="Không có đơn nào đang chờ"
+                description="Đơn bạn tạo cho khách sẽ hiện ở đây kèm trạng thái cọc."
+              />
             ) : (
-              <ul className="divide-y">
+              <ul className="divide-y divide-ink-100 overflow-hidden rounded-card border border-ink-200 bg-white">
                 {donDangXuLy.slice(0, 5).map((o) => (
-                  <li key={o.MaDatCho} className="flex items-center justify-between py-2">
-                    <div>
-                      <div className="font-medium">
-                        Đơn #{o.MaDatCho} · {o.ten_khach_hang}
-                      </div>
-                      <Text type="secondary" className="text-xs">
-                        {o.ten_tour} · {fmtVND(o.TongTien)}
-                      </Text>
-                    </div>
-                    <Tag color={o.TrangThai === 'DaCoc' ? 'cyan' : 'gold'}>
-                      {o.TrangThai === 'DaCoc' ? 'Đã cọc' : 'Chờ cọc'}
-                    </Tag>
-                  </li>
+                  <DongViec
+                    key={o.MaDatCho}
+                    tieuDe={`Đơn #${o.MaDatCho} · ${o.ten_khach_hang}`}
+                    phu={`${o.ten_tour} · ${fmtVND(o.TongTien)}`}
+                    trangThai={o.TrangThai === 'DaCoc' ? 'Đã cọc' : 'Chờ cọc'}
+                    pill={donPill(o.TrangThai)}
+                  />
                 ))}
               </ul>
             )}
-          </Card>
+          </Khoi>
         </Col>
       </Row>
     </div>

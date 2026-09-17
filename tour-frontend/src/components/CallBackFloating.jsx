@@ -1,11 +1,15 @@
 import { useState } from 'react';
-import { Button, Form, Input, Modal, message } from 'antd';
+import { Form, Input, Modal, message } from 'antd';
 import { PhoneOutlined } from '@ant-design/icons';
 import { leadApi } from '../api/http';
 
 /**
  * Nút nổi "Yêu cầu gọi lại" cho web khách hàng.
  * Form tạo Lead (Nguon=Web) — tư vấn viên sẽ thấy trên Kanban/Admin.
+ *
+ * Đây là lối vào phụ, nằm ngay trên nút tư vấn AI. Cố tình để kiểu nhẹ
+ * (nền giấy, viền mực) thay vì gradient đậm như bản cũ: hai nút nổi cạnh nhau
+ * cùng hét lên thì không nút nào còn là điểm nhấn.
  */
 export default function CallBackFloating() {
   const [open, setOpen] = useState(false);
@@ -36,7 +40,7 @@ export default function CallBackFloating() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-24 right-5 z-40 flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-600 to-sky-500 px-4 py-3 text-sm font-semibold text-white shadow-lg transition hover:scale-105"
+        className="btn btn-quiet fixed bottom-24 right-6 z-40 !px-3.5 !py-2.5 !text-[12.5px]"
       >
         <PhoneOutlined /> Yêu cầu gọi lại
       </button>

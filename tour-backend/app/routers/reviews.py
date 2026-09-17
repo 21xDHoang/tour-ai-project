@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import DatCho, DiemDen, KhachHang, LichKhoiHanh, NguoiDung, PhanHoi, Tour
 from app.schemas.review import ReviewCreate, ReviewItem, ReviewUpdate
+from app.services.booking_service import trang_thai_hien_thi
 from app.utils.auth import get_current_user, require_roles
 
 router = APIRouter(prefix="/reviews", tags=["reviews"])
@@ -89,10 +90,14 @@ def create_review(
     dat = db.query(DatCho).get(body.MaDatCho)
     if dat is None:
         raise HTTPException(status_code=404, detail="Không tìm thấy đơn đặt chỗ")
-    if dat.TrangThai != "DaThanhToan":
+    # P4: chỉ mở đánh giá khi tour đã thực sự kết thúc (trạng thái hiển thị HoanThanh)
+    lich = (
+        db.query(LichKhoiHanh).filter(LichKhoiHanh.MaLich == dat.MaLich).first()
+    )
+    if trang_thai_hien_thi(dat, lich) != "HoanThanh":
         raise HTTPException(
             status_code=400,
-            detail="Chỉ được đánh giá chuyến đi đã thanh toán hoàn tất",
+            detail="Chỉ được đánh giá chuyến đi đã hoàn thành",
         )
     kh = db.query(KhachHang).filter(KhachHang.Email == user.Email).first()
     if kh is None:

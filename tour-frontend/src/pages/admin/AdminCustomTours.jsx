@@ -1,14 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  Button,
-  Card,
-  Select,
-  Spin,
-  Table,
-  Tag,
-  Typography,
-} from 'antd';
-import { EditOutlined, TagsOutlined } from '@ant-design/icons';
+import { Select } from 'antd';
+import { EditOutlined } from '@ant-design/icons';
 import { adminApi, customTourApi } from '../../api/http';
 import {
   LOAI_DOAN,
@@ -17,9 +9,12 @@ import {
   fmtDateTime,
   fmtVND,
 } from '../../utils/format';
+import { tourRiengPill } from '../../utils/signs';
+import BangDuLieu from '../../components/ui/BangDuLieu';
+import HangThaoTac from '../../components/ui/HangThaoTac';
+import SectionHeader from '../../components/ui/SectionHeader';
+import ThanhLoc, { OLoc } from '../../components/ui/ThanhLoc';
 import CustomTourEditDrawer from '../../components/CustomTourEditDrawer';
-
-const { Title, Text } = Typography;
 
 const TRANG_THAI_OPTIONS = Object.keys(TRANG_THAI_TOUR_RIENG).map((k) => ({
   value: k,
@@ -57,86 +52,123 @@ export default function AdminCustomTours() {
   );
 
   const columns = [
-    { title: 'Khách', dataIndex: 'HoTen' },
     {
-      title: 'Loại đoàn',
-      dataIndex: 'LoaiDoan',
-      render: (v) => LOAI_DOAN[v] || v,
+      title: 'Khách',
+      dataIndex: 'HoTen',
+      width: 150,
+      ellipsis: true,
+      // Loại đoàn xuống dòng dưới tên khách chứ không chiếm một cột riêng:
+      // "Doanh nghiệp" là chuỗi dài nhất trong bảng mà chỉ để nói một khái niệm
+      // phụ, trong khi bề ngang ấy lấy từ cột tên khách — thứ phải đọc được.
+      render: (v, r) => (
+        <div className="min-w-0">
+          <div className="truncate font-semibold text-ink-950">{v}</div>
+          <div className="truncate text-[11.5px] text-ink-500">{LOAI_DOAN[r.LoaiDoan] || r.LoaiDoan}</div>
+        </div>
+      ),
     },
-    { title: 'Số khách', dataIndex: 'SoLuongKhach', align: 'center', width: 90 },
-    { title: 'Ngày dự kiến', dataIndex: 'NgayDuKien', render: fmtDate, width: 110 },
+    {
+      title: 'Số khách',
+      dataIndex: 'SoLuongKhach',
+      width: 90,
+      align: 'right',
+      render: (v) => <span className="tnum">{v}</span>,
+    },
+    // 118 chứ không phải 104: tiêu đề "Ngày dự kiến" tự nó đã rộng ~90px, cột
+    // hẹp hơn là tiêu đề xuống hai dòng và cả hàng tiêu đề cao gấp đôi.
+    { title: 'Ngày dự kiến', dataIndex: 'NgayDuKien', width: 118, render: fmtDate },
     {
       title: 'Ngân sách',
       dataIndex: 'NganSach',
-      render: (v) => (v ? fmtVND(v) : '—'),
+      width: 126,
+      align: 'right',
+      render: (v) => (v ? <span className="tnum">{fmtVND(v)}</span> : <span className="text-ink-400">—</span>),
     },
     {
       title: 'Giá chốt',
       dataIndex: 'GiaChot',
-      render: (v) => (v ? fmtVND(v) : <Text type="secondary">—</Text>),
+      width: 126,
+      align: 'right',
+      render: (v) =>
+        v ? (
+          <span className="tnum font-semibold text-ink-950">{fmtVND(v)}</span>
+        ) : (
+          <span className="text-ink-400">—</span>
+        ),
     },
     {
       title: 'Trạng thái',
       dataIndex: 'TrangThai',
-      render: (v) => {
-        const st = TRANG_THAI_TOUR_RIENG[v];
-        return <Tag color={st?.color}>{st?.label || v}</Tag>;
-      },
+      width: 120,
+      render: (v) => (
+        <span className={`chip !px-2 !py-0.5 !text-[11px] ${tourRiengPill(v)}`}>
+          {TRANG_THAI_TOUR_RIENG[v]?.label || v}
+        </span>
+      ),
     },
     {
       title: 'Xử lý',
       dataIndex: 'ten_nguoi_xu_ly',
-      render: (v) => v || <Text type="secondary">Chưa gán</Text>,
+      width: 116,
+      ellipsis: true,
+      render: (v) => v || <span className="text-ink-500">Chưa gán</span>,
     },
-    { title: 'Ngày tạo', dataIndex: 'NgayTao', render: fmtDateTime, width: 140 },
+    {
+      title: 'Ngày tạo',
+      dataIndex: 'NgayTao',
+      width: 148,
+      render: (v) => <span className="tnum whitespace-nowrap">{fmtDateTime(v)}</span>,
+    },
     {
       title: 'Thao tác',
       key: 'action',
-      width: 90,
+      width: 92,
+      fixed: 'right',
       render: (_, r) => (
-        <Button size="small" icon={<EditOutlined />} onClick={() => setEditItem(r)}>
-          Sửa
-        </Button>
+        <HangThaoTac chinh={{ nhan: 'Sửa', icon: <EditOutlined />, onClick: () => setEditItem(r) }} />
       ),
     },
   ];
 
+  const rongBang = columns.reduce((s, c) => s + (c.width || 0), 0);
+
   return (
-    <div className="mx-auto max-w-7xl">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <Title level={3} className="!mb-1">
-            <TagsOutlined /> Tour thiết kế riêng
-          </Title>
-          <Text type="secondary">
-            Yêu cầu tour đoàn/gia đình/doanh nghiệp cần báo giá và chốt.
-          </Text>
-        </div>
-        <Select
-          allowClear
-          placeholder="Lọc theo trạng thái"
-          style={{ width: 180 }}
-          options={TRANG_THAI_OPTIONS}
-          value={filter}
-          onChange={setFilter}
+    <div className="w-full">
+      <SectionHeader
+        marker={loading ? null : `${data.length} yêu cầu`}
+        title="Tour thiết kế riêng"
+        description="Yêu cầu tour đoàn/gia đình/doanh nghiệp cần báo giá và chốt."
+      />
+
+      {/* Bộ lọc nằm trên bảng chứ không nằm cạnh tiêu đề: nó thuộc về bảng. */}
+      <ThanhLoc className="mt-4">
+        <OLoc nhan="Trạng thái" width={200}>
+          <Select
+            allowClear
+            placeholder="Tất cả trạng thái"
+            style={{ width: '100%' }}
+            options={TRANG_THAI_OPTIONS}
+            value={filter}
+            onChange={setFilter}
+          />
+        </OLoc>
+      </ThanhLoc>
+
+      <div className="mt-4">
+        <BangDuLieu
+          rows={data}
+          columns={columns}
+          rowKey="MaYeuCau"
+          x={rongBang}
+          loading={loading}
+          pageSize={10}
+          empty={{
+            title: 'Chưa có yêu cầu nào',
+            description:
+              'Yêu cầu tour riêng của khách sẽ chờ báo giá và chốt ở đây.',
+          }}
         />
       </div>
-
-      <Card className="shadow-card" bordered={false}>
-        {loading ? (
-          <div className="flex justify-center py-16">
-            <Spin size="large" />
-          </div>
-        ) : (
-          <Table
-            rowKey="MaYeuCau"
-            columns={columns}
-            dataSource={data}
-            pagination={{ pageSize: 10 }}
-            scroll={{ x: 1200 }}
-          />
-        )}
-      </Card>
 
       <CustomTourEditDrawer
         open={!!editItem}

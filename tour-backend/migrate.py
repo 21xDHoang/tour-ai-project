@@ -44,8 +44,20 @@ ALTERS = [
         'ALTER TABLE "YeuCauTourRieng" ADD COLUMN IF NOT EXISTS "GiaChot" NUMERIC(12,2) NULL',
     ),
     (
+        "LichKhoiHanh.GhiChu",
+        'ALTER TABLE "LichKhoiHanh" ADD COLUMN IF NOT EXISTS "GhiChu" VARCHAR(255) NULL',
+    ),
+    (
         "Tour.LoaiTour",
         'ALTER TABLE "Tour" ADD COLUMN IF NOT EXISTS "LoaiTour" VARCHAR(30) NULL',
+    ),
+    (
+        "Tour.HinhAnh",
+        'ALTER TABLE "Tour" ADD COLUMN IF NOT EXISTS "HinhAnh" VARCHAR(500) NULL',
+    ),
+    (
+        "DiemDen.HinhAnh",
+        'ALTER TABLE "DiemDen" ADD COLUMN IF NOT EXISTS "HinhAnh" VARCHAR(500) NULL',
     ),
     (
         "KhachHang.AnhDaiDien",
@@ -68,24 +80,27 @@ ALTERS = [
     ("NguoiDung.HeSoLuong", 'ALTER TABLE "NguoiDung" ADD COLUMN IF NOT EXISTS "HeSoLuong" NUMERIC(6,2) NOT NULL DEFAULT 1'),
     ("NguoiDung.LuongCoBan", 'ALTER TABLE "NguoiDung" ADD COLUMN IF NOT EXISTS "LuongCoBan" NUMERIC(12,2) NOT NULL DEFAULT 0'),
     ("NguoiDung.PhuCap", 'ALTER TABLE "NguoiDung" ADD COLUMN IF NOT EXISTS "PhuCap" NUMERIC(12,2) NOT NULL DEFAULT 0'),
+    # ---- DatCho: khai báo "đã chuyển khoản" (ChoXacNhanCoc) ----
+    ("DatCho.SoGiayConLai", 'ALTER TABLE "DatCho" ADD COLUMN IF NOT EXISTS "SoGiayConLai" INTEGER NULL'),
+    ("DatCho.HinhAnhChuyenKhoan", 'ALTER TABLE "DatCho" ADD COLUMN IF NOT EXISTS "HinhAnhChuyenKhoan" VARCHAR(500) NULL'),
 ]
 
 
 def main() -> None:
     print("=" * 60)
-    print("TOUR AI - MIGRATION BƯỚC TÁI CẤU TRÚC")
+    print("TOUR AI - MIGRATION")
     print("=" * 60)
 
     # 1) Tạo các bảng mới (nếu chưa có)
     try:
         Base.metadata.create_all(bind=engine)
-        print("\n[1] create_all -> tạo bảng mới: OK")
+        print("\n[1] create_all -> OK")
     except Exception as exc:
-        print("    LỖI create_all:", exc)
+        print("    ERROR create_all:", exc)
         sys.exit(1)
 
-    # 2) ALTER PhanHoi (idempotent)
-    print("\n[2] ALTER TABLE PhanHoi ...")
+    # 2) ALTER
+    print("\n[2] ALTER TABLE ...")
     with engine.begin() as conn:
         for name, stmt in ALTERS:
             try:
@@ -94,7 +109,7 @@ def main() -> None:
             except Exception as exc:
                 print(f"    - {name}: {exc}")
 
-    print("\nHOÀN TẤT. Các cột/bảng mới đã sẵn sàng trên Supabase.")
+    print("\nCOMPLETED. Migration finished successfully.")
 
 
 if __name__ == "__main__":

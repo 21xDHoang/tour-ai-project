@@ -52,3 +52,9 @@ class CustomerBookingItem(BaseModel):
     NgayDat: datetime
     HanGiuCho: datetime
     TrangThai: str
+    # Khai báo "đã chuyển khoản" -> ChoXacNhanCoc (tạm dừng đếm ngược 24h)
+    SoGiayConLai: int | None = None
+    HinhAnhChuyenKhoan: str | None = None
+    # Tiền cọc tối thiểu 30% tổng giá trị đơn (DR-03) - khách cần biết chuyển
+    # bao nhiêu. Cùng công thức với màn hình chi tiết đơn và webhook đối soát.
+    coc_toi_thieu: Decimal | None = None

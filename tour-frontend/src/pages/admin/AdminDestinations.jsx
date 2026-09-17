@@ -1,30 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
-import {
-  Button,
-  Card,
-  Form,
-  Input,
-  Modal,
-  Select,
-  Space,
-  Spin,
-  Table,
-  Tag,
-  Typography,
-  message,
-} from 'antd';
-import {
-  EditOutlined,
-  EnvironmentOutlined,
-  PlusOutlined,
-} from '@ant-design/icons';
+import { Form, Input, Modal, Select, message } from 'antd';
+import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { tourApi } from '../../api/http';
+import { KHU_VUC_OPTIONS, khuVucLabel } from '../../utils/format';
+import BangDuLieu from '../../components/ui/BangDuLieu';
+import HangThaoTac from '../../components/ui/HangThaoTac';
+import SectionHeader from '../../components/ui/SectionHeader';
 
-const { Title, Text } = Typography;
-
-const KHU_VUC = ['Mien Bac', 'Mien Trung', 'Mien Nam', 'Tay Nguyen', 'Mien Tay'];
-
-/** Danh mục điểm đến (Admin): thêm mới, sửa tên/khu vực/mô tả. */
+/** Danh mục điểm đến (Admin): thêm mới, sửa, xóa có ràng buộc. */
 export default function AdminDestinations() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -80,72 +63,108 @@ export default function AdminDestinations() {
       form.resetFields();
       load();
     } catch (err) {
-      message.error(err.response?.data?.detail || 'Thao tác thất bại');
+      const d = err.response?.data?.detail;
+      message.error(Array.isArray(d) ? 'Dữ liệu không hợp lệ' : (d || 'Thao tác thất bại'));
     } finally {
       setSubmitting(false);
     }
   };
 
+  const handleDelete = async (row) => {
+    try {
+      await tourApi.deleteDestination(row.MaDiemDen);
+      message.success('Đã xóa điểm đến');
+      load();
+    } catch (err) {
+      const d = err.response?.data?.detail;
+      message.error(Array.isArray(d) ? 'Không thể xóa điểm đến' : (d || 'Xóa điểm đến thất bại'));
+    }
+  };
+
   const columns = [
-    { title: 'Mã', dataIndex: 'MaDiemDen', width: 80 },
     {
+      title: 'Mã',
+      dataIndex: 'MaDiemDen',
+      width: 70,
+      render: (v) => <span className="tnum text-ink-600">#{v}</span>,
+    },
+    {
+      // Bỏ chiếc ghim đỏ cũ: một điểm đến không phải là cảnh báo, và đỏ trong
+      // bảng màu này để dành cho việc đã hỏng.
       title: 'Điểm đến',
       dataIndex: 'TenDiemDen',
-      render: (v) => (
-        <span>
-          <EnvironmentOutlined className="mr-1 text-red-500" />
-          <b>{v}</b>
-        </span>
-      ),
+      width: 180,
+      ellipsis: true,
+      render: (v) => <span className="font-semibold text-ink-950">{v}</span>,
     },
     {
       title: 'Khu vực',
       dataIndex: 'KhuVuc',
-      render: (v) => (v ? <Tag color="geekblue">{v}</Tag> : '—'),
+      width: 122,
+      render: (v) => (v ? khuVucLabel(v) : '—'),
     },
-    { title: 'Mô tả', dataIndex: 'MoTa', ellipsis: true },
+    {
+      title: 'Số tour',
+      dataIndex: 'SoLuongTour',
+      width: 88,
+      align: 'right',
+      render: (v) => <span className="tnum">{v ?? 0}</span>,
+    },
+    { title: 'Mô tả', dataIndex: 'MoTa', width: 220, ellipsis: true },
     {
       title: 'Thao tác',
       key: 'action',
-      width: 90,
+      width: 178,
+      fixed: 'right',
       render: (_, row) => (
-        <Button
-          size="small"
-          icon={<EditOutlined />}
-          onClick={() => openEdit(row)}
-        >
-          Sửa
-        </Button>
+        <HangThaoTac
+          chinh={{ nhan: 'Sửa', icon: <EditOutlined />, onClick: () => openEdit(row) }}
+          khac={[
+            {
+              nhan: 'Xóa',
+              icon: <DeleteOutlined />,
+              // Điểm đến đang có tour dùng thì nút Xóa bị vô hiệu — và nút vô
+              // hiệu im lặng là ngõ cụt, nên lý do đi kèm ngay trong tooltip.
+              disabled: row.SoLuongTour > 0,
+              disabledReason: `Có ${row.SoLuongTour} tour đang dùng điểm đến này — không xóa được.`,
+              xacNhan: 'Xóa điểm đến này? Thao tác không thể hoàn tác.',
+              onClick: () => handleDelete(row),
+            },
+          ]}
+        />
       ),
     },
   ];
 
+  const rongBang = columns.reduce((s, c) => s + (c.width || 0), 0);
+
   return (
     <div className="mx-auto max-w-5xl">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <Title level={3} className="!mb-1">
-            <EnvironmentOutlined /> Danh mục điểm đến
-          </Title>
-          <Text type="secondary">
-            Quản lý danh mục điểm đến — các điểm đến này sẽ hiển thị trong form
-            thêm tour mới.
-          </Text>
-        </div>
-        <Button type="primary" icon={<PlusOutlined />} onClick={openAdd}>
-          Thêm điểm đến
-        </Button>
-      </div>
+      <SectionHeader
+        marker={loading ? null : `${rows.length} điểm đến`}
+        title="Danh mục điểm đến"
+        description="Quản lý danh mục điểm đến — các điểm đến này sẽ hiển thị trong form thêm tour mới."
+        action={
+          <button type="button" className="btn btn-ink" onClick={openAdd}>
+            <PlusOutlined /> Thêm điểm đến
+          </button>
+        }
+      />
 
-      <Card className="shadow-card" bordered={false}>
-        {loading ? (
-          <div className="flex justify-center py-16">
-            <Spin size="large" />
-          </div>
-        ) : (
-          <Table rowKey="MaDiemDen" columns={columns} dataSource={rows} />
-        )}
-      </Card>
+      <div className="mt-6">
+        <BangDuLieu
+          rows={rows}
+          columns={columns}
+          rowKey="MaDiemDen"
+          x={rongBang}
+          loading={loading}
+          pageSize={10}
+          empty={{
+            title: 'Chưa có điểm đến nào',
+            description: 'Thêm điểm đến trước, rồi chọn nó khi tạo tour mới.',
+          }}
+        />
+      </div>
 
       <Modal
         open={open}
@@ -168,7 +187,7 @@ export default function AdminDestinations() {
             <Select
               placeholder="Chọn khu vực"
               allowClear
-              options={KHU_VUC.map((k) => ({ value: k, label: k }))}
+              options={KHU_VUC_OPTIONS}
             />
           </Form.Item>
           <Form.Item name="MoTa" label="Mô tả">
